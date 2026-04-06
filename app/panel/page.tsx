@@ -1,0 +1,344 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "../lib/supabase";
+
+type Empresa = {
+  id: number;
+  nombre_comercial: string;
+  pago_habilitado: boolean;
+  fecha_vencimiento?: string;
+};
+
+export default function PanelPage() {
+  const [empresa, setEmpresa] = useState<Empresa | null>(null);
+  const [metricas, setMetricas] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  const empresaId = empresa?.id ?? null;
+
+  // ✅ Cálculo de días restantes
+  const diasRestantes = empresa?.fecha_vencimiento
+    ? Math.ceil(
+        (new Date(empresa.fecha_vencimiento).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24)
+      )
+    : null;
+
+  // ✅ Estados derivados
+  const licenciaVencida = diasRestantes !== null && diasRestantes < 0;
+
+  const activo =
+    empresa?.pago_habilitado &&
+    (diasRestantes === null || diasRestantes > 0);
+
+  const accesoCaja =
+    empresa?.pago_habilitado && !licenciaVencida;
+
+  useEffect(() => {
+    cargarEmpresa();
+    cargarMetricas();
+  }, []);
+
+  useEffect(() => {
+    if (!empresaId) return;
+
+    const channel = supabase
+      .channel("panel-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pedidos",
+          filter: `empresa_id=eq.${empresaId}`,
+        },
+        () => {
+          cargarMetricas();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [empresaId]);
+
+  async function cargarEmpresa() {
+    const res = await fetch("/api/empresa?id=1");
+    const json = await res.json();
+
+    setEmpresa(json.data);
+    setLoading(false);
+  }
+
+  async function cargarMetricas() {
+    const res = await fetch("/api/metricas");
+    const json = await res.json();
+
+    setMetricas(json.data);
+  }
+
+  async function activarPago() {
+    await fetch("/api/empresa/pagar", {
+      method: "POST",
+    });
+
+    cargarEmpresa();
+  }
+
+  if (loading) return <p style={styles.loading}>Cargando...</p>;
+
+  return (
+    <div style={styles.app}>
+      {/* HEADER */}
+      <div style={styles.header}>
+        <h1 style={styles.logo}>🍔 PARKLISTO</h1>
+        <span style={styles.sub}>Sistema de gestión</span>
+      </div>
+
+      {/* MÉTRICAS */}
+      <div style={styles.metricasGrid}>
+        <Metrica
+          titulo="💰 Ventas hoy"
+          valor={`$${metricas?.totalVentas?.toLocaleString() || 0}`}
+        />
+        <Metrica
+          titulo="📦 Pedidos"
+          valor={metricas?.cantidadPedidos || 0}
+        />
+        <Metrica
+          titulo="🧾 Ticket promedio"
+          valor={`$${metricas?.ticketPromedio?.toLocaleString() || 0}`}
+        />
+        <Metrica
+          titulo="👨‍🍳 En preparación"
+          valor={metricas?.enPreparacion || 0}
+        />
+      </div>
+
+      {/* EMPRESA */}
+      <div style={styles.cardPrincipal}>
+        <div>
+          <h2>{empresa?.nombre_comercial}</h2>
+
+          <span
+            style={{
+              ...styles.badge,
+              backgroundColor: activo ? "#d4edda" : "#f8d7da",
+              color: activo ? "#155724" : "#721c24",
+            }}
+          >
+            {activo ? "🟢 Sistema activo" : "🔴 Sistema bloqueado"}
+          </span>
+
+          {/* ALERTAS */}
+          {diasRestantes !== null && diasRestantes > 0 && diasRestantes <= 3 && (
+            <p style={styles.alertaWarning}>
+              ⚠️ Vence en {diasRestantes} día{diasRestantes === 1 ? "" : "s"}
+            </p>
+          )}
+
+          {diasRestantes === 0 && (
+            <p style={styles.alertaWarning}>
+              ⚠️ Tu licencia vence hoy
+            </p>
+          )}
+
+          {licenciaVencida && (
+            <p style={styles.alertaError}>
+              ❌ Licencia vencida - sistema limitado
+            </p>
+          )}
+        </div>
+
+        {!empresa?.pago_habilitado && (
+          <button style={styles.botonPremium} onClick={activarPago}>
+            🔓 Activar sistema
+          </button>
+        )}
+      </div>
+
+      {/* MODULOS */}
+      <div style={styles.grid}>
+        <Card
+          icon="💰"
+          titulo="Caja"
+          descripcion={
+            licenciaVencida
+              ? "Licencia vencida"
+              : "Cobrar y generar pedidos"
+          }
+          link="/caja"
+          activo={accesoCaja} // 🔒 BLOQUEO REAL
+        />
+
+        <Card
+          icon="👨‍🍳"
+          titulo="Cocina"
+          descripcion="Pedidos en tiempo real"
+          link="/dashboard"
+          activo={true}
+        />
+
+        <Card
+          icon="📦"
+          titulo="Productos"
+          descripcion="Gestionar menú"
+          link="/productos"
+          activo={true}
+        />
+
+        <Card
+          icon="📄"
+          titulo="Pedidos"
+          descripcion="Vista individual"
+          link="/pedidos/1"
+          activo={true}
+        />
+      </div>
+    </div>
+  );
+}
+
+/* COMPONENTES */
+
+function Card({ icon, titulo, descripcion, link, activo }: any) {
+  return (
+    <div
+      style={{
+        ...styles.card,
+        opacity: activo ? 1 : 0.5,
+        cursor: activo ? "pointer" : "not-allowed",
+      }}
+      onClick={() => {
+        if (activo) window.location.href = link;
+      }}
+    >
+      <div style={styles.icon}>{icon}</div>
+      <h3>{titulo}</h3>
+      <p style={styles.desc}>{descripcion}</p>
+
+      {activo ? (
+        <span style={styles.link}>Entrar →</span>
+      ) : (
+        <span style={styles.lock}>🔒 Bloqueado</span>
+      )}
+    </div>
+  );
+}
+
+function Metrica({ titulo, valor }: any) {
+  return (
+    <div style={styles.metricaCard}>
+      <p style={styles.metricaTitulo}>{titulo}</p>
+      <h2 style={styles.metricaValor}>{valor}</h2>
+    </div>
+  );
+}
+
+/* ESTILOS */
+
+const styles: any = {
+  app: {
+    minHeight: "100vh",
+    background: "linear-gradient(135deg, #f5f7fa, #e4ecf7)",
+    padding: 30,
+    fontFamily: "system-ui",
+  },
+  header: { marginBottom: 30 },
+  logo: { margin: 0, fontSize: 28 },
+  sub: { color: "#666", fontSize: 14 },
+  loading: { padding: 40 },
+
+  metricasGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+    gap: 15,
+    marginBottom: 30,
+  },
+
+  metricaCard: {
+    background: "white",
+    padding: 15,
+    borderRadius: 12,
+  },
+
+  metricaTitulo: {
+    fontSize: 12,
+    color: "#666",
+  },
+
+  metricaValor: {
+    margin: 0,
+    fontSize: 22,
+    fontWeight: "bold",
+  },
+
+  cardPrincipal: {
+    background: "white",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 30,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  badge: {
+    display: "inline-block",
+    marginTop: 8,
+    padding: "6px 12px",
+    borderRadius: 20,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  alertaWarning: {
+    marginTop: 8,
+    background: "#fff3cd",
+    color: "#856404",
+    padding: "6px 10px",
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  alertaError: {
+    marginTop: 8,
+    background: "#f8d7da",
+    color: "#721c24",
+    padding: "6px 10px",
+    borderRadius: 6,
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+
+  botonPremium: {
+    padding: "12px 18px",
+    background: "linear-gradient(135deg, #007bff, #0056b3)",
+    color: "white",
+    border: "none",
+    borderRadius: 10,
+    cursor: "pointer",
+    fontWeight: "bold",
+  },
+
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+    gap: 20,
+  },
+
+  card: {
+    background: "white",
+    padding: 20,
+    borderRadius: 14,
+  },
+
+  icon: { fontSize: 28 },
+  desc: { fontSize: 13, color: "#666" },
+
+  link: { marginTop: 10, fontWeight: "bold", color: "#007bff" },
+  lock: { marginTop: 10, color: "#999", fontWeight: "bold" },
+};
