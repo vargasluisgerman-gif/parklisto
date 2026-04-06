@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "../../lib/supabase";
-import { withLicencia } from "../../lib/withLicencia";
+import { withLicencia } from "@/app/lib/withLicencia";
 
 export const POST = withLicencia(async (req: Request, empresa: any) => {
   try {
