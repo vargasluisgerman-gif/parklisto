@@ -14,4 +14,4 @@ export default function QRCodePedido({ pedidoId }: { pedidoId: number }) {
       </p>
     </div>
   );
-}
+}//probando cambios
