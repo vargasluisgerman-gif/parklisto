@@ -1,4 +1,4 @@
-import { supabase } from "../../lib/supabase";
+import { supabase } from "@/lib/supabase";
 import EstadoPedido from "../../components/EstadoPedido";
 
 async function getPedido(id: number) {
