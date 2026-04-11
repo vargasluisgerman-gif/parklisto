@@ -6,9 +6,7 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
   try {
     const body = await req.json();
 
-    // 🔥 aceptar productos o items
     const { carrito_id, nombre, productos, items } = body;
-
     const lista = productos || items;
 
     if (!carrito_id || !lista || lista.length === 0) {
@@ -20,7 +18,37 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
 
     const nombreFinal = nombre || "Cliente Mostrador";
 
-    // 1️⃣ Obtener último número
+    // ============================
+    // 🔥 CONTROL DE PLAN
+    // ============================
+
+    // traer configuración
+    const { data: config, error: errorConfig } = await supabase
+      .from("configuración")
+      .select("*")
+      .eq("id", 1)
+      .single();
+
+    if (errorConfig || !config) {
+      return NextResponse.json(
+        { error: "Configuración no encontrada" },
+        { status: 500 }
+      );
+    }
+
+    if (empresa.tipo_suscripción === "por_pedido") {
+      if (empresa.saldo < config.precio_por_pedido) {
+        return NextResponse.json(
+          { error: "Saldo insuficiente" },
+          { status: 403 }
+        );
+      }
+    }
+
+    // ============================
+    // 1️⃣ Obtener número de pedido
+    // ============================
+
     const { data: ultimoPedido } = await supabase
       .from("pedidos")
       .select("numero")
@@ -32,7 +60,10 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
         ? ultimoPedido[0].numero + 1
         : 1;
 
-    // 2️⃣ Crear pedido (🔥 empresa dinámica)
+    // ============================
+    // 2️⃣ Crear pedido
+    // ============================
+
     const { data: pedidoData, error: errorPedido } = await supabase
       .from("pedidos")
       .insert([
@@ -42,13 +73,12 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
           nombre: nombreFinal,
           estado: "Esperando",
           total: 0,
-          empresa_id: empresa.id, // 🔥 CLAVE
+          empresa_id: empresa.id,
         },
       ])
       .select();
 
     if (errorPedido) {
-      console.log("ERROR PEDIDO:", errorPedido);
       return NextResponse.json(
         { error: errorPedido.message },
         { status: 500 }
@@ -57,7 +87,10 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
 
     const pedido = pedidoData[0];
 
-    // 3️⃣ IDs productos
+    // ============================
+    // 3️⃣ Obtener productos
+    // ============================
+
     const ids = lista.map((p: any) => p.producto_id);
 
     const { data: productosDB, error: errorProductos } = await supabase
@@ -66,14 +99,13 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
       .in("id", ids);
 
     if (errorProductos) {
-      console.log("ERROR PRODUCTOS:", errorProductos);
       return NextResponse.json(
         { error: errorProductos.message },
         { status: 500 }
       );
     }
 
-    // 4️⃣ Validar pertenencia al carrito
+    // validar carrito
     for (const prod of productosDB) {
       if (prod.carrito_id !== carrito_id) {
         return NextResponse.json(
@@ -83,7 +115,10 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
       }
     }
 
-    // 5️⃣ Armar detalle
+    // ============================
+    // 4️⃣ Armar detalle
+    // ============================
+
     let totalCalculado = 0;
 
     const detalle = lista.map((p: any) => {
@@ -106,32 +141,57 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
       };
     });
 
-    // 6️⃣ Insertar detalle
+    // ============================
+    // 5️⃣ Insertar detalle
+    // ============================
+
     const { error: errorDetalle } = await supabase
       .from("pedido_productos")
       .insert(detalle);
 
     if (errorDetalle) {
-      console.log("ERROR DETALLE:", errorDetalle);
       return NextResponse.json(
         { error: errorDetalle.message },
         { status: 500 }
       );
     }
 
-    // 7️⃣ Actualizar total
+    // ============================
+    // 6️⃣ Actualizar total
+    // ============================
+
     const { error: errorTotal } = await supabase
       .from("pedidos")
       .update({ total: totalCalculado })
       .eq("id", pedido.id);
 
     if (errorTotal) {
-      console.log("ERROR TOTAL:", errorTotal);
       return NextResponse.json(
         { error: errorTotal.message },
         { status: 500 }
       );
     }
+
+    // ============================
+    // 🔥 DESCONTAR SALDO (AL FINAL)
+    // ============================
+
+    if (empresa.tipo_suscripción === "por_pedido") {
+      const { error: errorSaldo } = await supabase
+        .from("empresas")
+        .update({
+          saldo: empresa.saldo - config.precio_por_pedido,
+        })
+        .eq("id", empresa.id);
+
+      if (errorSaldo) {
+        console.log("ERROR DESCONTANDO SALDO:", errorSaldo);
+      }
+    }
+
+    // ============================
+    // ✅ RESPUESTA FINAL
+    // ============================
 
     return NextResponse.json({
       message: "Pedido creado correctamente",
