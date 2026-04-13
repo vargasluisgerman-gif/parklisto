@@ -1,5 +1,5 @@
 import { supabase } from "@/lib/supabase";
-import EstadoPedido from "../../components/EstadoPedido";
+import EstadoPedido from "@/components/EstadoPedido";
 
 async function getPedido(id: number) {
   const { data: pedidoData, error: errorPedido } = await supabase
