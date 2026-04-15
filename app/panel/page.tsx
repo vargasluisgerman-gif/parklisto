@@ -19,16 +19,14 @@ export default function PanelPage() {
 
   const empresaId = empresa?.id ?? null;
 
-  // 🔒 PROTEGER PANEL (LOGIN)
+  // 🔒 PROTEGER PANEL
   useEffect(() => {
     async function checkSession() {
       const { data } = await supabase.auth.getSession();
-
       if (!data.session) {
         window.location.href = "/login";
       }
     }
-
     checkSession();
   }, []);
 
@@ -38,7 +36,7 @@ export default function PanelPage() {
     window.location.href = "/";
   }
 
-  // ✅ Cálculo de días restantes
+  // 📅 VENCIMIENTO
   const diasRestantes = empresa?.fecha_vencimiento
     ? Math.ceil(
         (new Date(empresa.fecha_vencimiento).getTime() - Date.now()) /
@@ -48,7 +46,7 @@ export default function PanelPage() {
 
   const licenciaVencida = diasRestantes !== null && diasRestantes < 0;
 
-  // 🔥 LÓGICA REAL DEL SISTEMA
+  // 🔥 LÓGICA NEGOCIO
   const activo =
     empresa?.tipo_suscripcion === "mensual"
       ? empresa?.pago_habilitado &&
@@ -89,7 +87,6 @@ export default function PanelPage() {
   async function cargarEmpresa() {
     const res = await fetch("/api/empresa?id=1");
     const json = await res.json();
-
     setEmpresa(json.data);
     setLoading(false);
   }
@@ -97,15 +94,11 @@ export default function PanelPage() {
   async function cargarMetricas() {
     const res = await fetch("/api/metricas");
     const json = await res.json();
-
     setMetricas(json.data);
   }
 
   async function activarPago() {
-    await fetch("/api/empresa/pagar", {
-      method: "POST",
-    });
-
+    await fetch("/api/empresa/pagar", { method: "POST" });
     cargarEmpresa();
   }
 
@@ -113,15 +106,8 @@ export default function PanelPage() {
 
   return (
     <div style={styles.app}>
-      {/* HEADER CON LOGOUT */}
-      <div
-        style={{
-          ...styles.header,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
+      {/* HEADER */}
+      <div style={styles.header}>
         <div>
           <h1 style={styles.logo}>🍔 PARKLISTO</h1>
           <span style={styles.sub}>Sistema de gestión</span>
@@ -129,38 +115,26 @@ export default function PanelPage() {
 
         <button
           onClick={cerrarSesion}
-          style={{
-            background: "#dc3545",
-            color: "white",
-            border: "none",
-            padding: "8px 14px",
-            borderRadius: 8,
-            cursor: "pointer",
-            fontWeight: "bold",
+          style={styles.logoutBtn}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = "#dc3545";
+            e.currentTarget.style.color = "white";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = "transparent";
+            e.currentTarget.style.color = "#dc3545";
           }}
         >
-          🚪 Salir
+          🚪 Cerrar sesión
         </button>
       </div>
 
       {/* MÉTRICAS */}
       <div style={styles.metricasGrid}>
-        <Metrica
-          titulo="💰 Ventas hoy"
-          valor={`$${metricas?.totalVentas?.toLocaleString() || 0}`}
-        />
-        <Metrica
-          titulo="📦 Pedidos"
-          valor={metricas?.cantidadPedidos || 0}
-        />
-        <Metrica
-          titulo="🧾 Ticket promedio"
-          valor={`$${metricas?.ticketPromedio?.toLocaleString() || 0}`}
-        />
-        <Metrica
-          titulo="👨‍🍳 En preparación"
-          valor={metricas?.enPreparacion || 0}
-        />
+        <Metrica titulo="💰 Ventas hoy" valor={`$${metricas?.totalVentas || 0}`} />
+        <Metrica titulo="📦 Pedidos" valor={metricas?.cantidadPedidos || 0} />
+        <Metrica titulo="🧾 Ticket" valor={`$${metricas?.ticketPromedio || 0}`} />
+        <Metrica titulo="👨‍🍳 En cocina" valor={metricas?.enPreparacion || 0} />
       </div>
 
       {/* EMPRESA */}
@@ -169,15 +143,11 @@ export default function PanelPage() {
           <h2>{empresa?.nombre_comercial}</h2>
 
           {empresa?.tipo_suscripcion === "por_pedido" && (
-            <p style={{ marginTop: 5, fontSize: 13 }}>
-              💳 Saldo disponible: ${empresa?.saldo ?? 0}
-            </p>
+            <p>💳 Saldo: ${empresa?.saldo ?? 0}</p>
           )}
 
           {empresa?.tipo_suscripcion === "mensual" && (
-            <p style={{ marginTop: 5, fontSize: 13 }}>
-              📅 Plan mensual activo
-            </p>
+            <p>📅 Plan mensual activo</p>
           )}
 
           <span
@@ -187,57 +157,27 @@ export default function PanelPage() {
               color: activo ? "#155724" : "#721c24",
             }}
           >
-            {activo ? "🟢 Sistema activo" : "🔴 Sistema bloqueado"}
+            {activo ? "🟢 Activo" : "🔴 Bloqueado"}
           </span>
 
-          {diasRestantes !== null && diasRestantes > 0 && diasRestantes <= 3 && (
-            <p style={styles.alertaWarning}>
-              ⚠️ Vence en {diasRestantes} día{diasRestantes === 1 ? "" : "s"}
-            </p>
-          )}
-
           {licenciaVencida && (
-            <p style={styles.alertaError}>❌ Licencia vencida</p>
+            <p style={styles.alertaError}>Licencia vencida</p>
           )}
         </div>
 
         {!empresa?.pago_habilitado &&
           empresa?.tipo_suscripcion === "mensual" && (
             <button style={styles.botonPremium} onClick={activarPago}>
-              🔓 Activar sistema
+              Activar sistema
             </button>
           )}
       </div>
 
       {/* MODULOS */}
       <div style={styles.grid}>
-        <Card
-          icon="💰"
-          titulo="Caja"
-          descripcion={
-            activo
-              ? "Cobrar y generar pedidos"
-              : "Sistema bloqueado"
-          }
-          link="/caja"
-          activo={accesoCaja}
-        />
-
-        <Card
-          icon="👨‍🍳"
-          titulo="Cocina"
-          descripcion="Pedidos en tiempo real"
-          link="/dashboard"
-          activo={true}
-        />
-
-        <Card
-          icon="📦"
-          titulo="Productos"
-          descripcion="Gestionar menú"
-          link="/productos"
-          activo={true}
-        />
+        <Card icon="💰" titulo="Caja" link="/caja" activo={accesoCaja} />
+        <Card icon="👨‍🍳" titulo="Cocina" link="/dashboard" activo />
+        <Card icon="📦" titulo="Productos" link="/productos" activo />
       </div>
     </div>
   );
@@ -245,27 +185,24 @@ export default function PanelPage() {
 
 /* COMPONENTES */
 
-function Card({ icon, titulo, descripcion, link, activo }: any) {
+function Card({ icon, titulo, link, activo }: any) {
   return (
     <div
       style={{
         ...styles.card,
         opacity: activo ? 1 : 0.5,
-        cursor: activo ? "pointer" : "not-allowed",
       }}
-      onClick={() => {
-        if (activo) window.location.href = link;
+      onClick={() => activo && (window.location.href = link)}
+      onMouseEnter={(e) => {
+        if (activo) e.currentTarget.style.transform = "translateY(-5px)";
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.transform = "translateY(0)";
       }}
     >
       <div style={styles.icon}>{icon}</div>
       <h3>{titulo}</h3>
-      <p style={styles.desc}>{descripcion}</p>
-
-      {activo ? (
-        <span style={styles.link}>Entrar →</span>
-      ) : (
-        <span style={styles.lock}>🔒 Bloqueado</span>
-      )}
+      <p>{activo ? "Entrar" : "Bloqueado"}</p>
     </div>
   );
 }
@@ -273,11 +210,104 @@ function Card({ icon, titulo, descripcion, link, activo }: any) {
 function Metrica({ titulo, valor }: any) {
   return (
     <div style={styles.metricaCard}>
-      <p style={styles.metricaTitulo}>{titulo}</p>
-      <h2 style={styles.metricaValor}>{valor}</h2>
+      <p>{titulo}</p>
+      <h2>{valor}</h2>
     </div>
   );
 }
 
-/* ESTILOS (NO TOCADOS) */
-const styles: any = { /* ... los tuyos ... */ };
+/* ESTILOS */
+
+const styles: any = {
+  app: {
+    minHeight: "100vh",
+    padding: 30,
+    background: "#f5f7fa",
+    fontFamily: "system-ui",
+  },
+
+  header: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    background: "white",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+  },
+
+  logo: { margin: 0 },
+  sub: { color: "#666" },
+
+  logoutBtn: {
+    background: "transparent",
+    border: "1px solid #dc3545",
+    color: "#dc3545",
+    padding: "8px 14px",
+    borderRadius: 8,
+    cursor: "pointer",
+  },
+
+  metricasGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 15,
+    marginBottom: 20,
+  },
+
+  metricaCard: {
+    background: "white",
+    padding: 15,
+    borderRadius: 12,
+  },
+
+  cardPrincipal: {
+    background: "white",
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    display: "flex",
+    justifyContent: "space-between",
+  },
+
+  badge: {
+    display: "inline-block",
+    padding: "6px 12px",
+    borderRadius: 20,
+    marginTop: 10,
+  },
+
+  alertaError: {
+    color: "red",
+    marginTop: 10,
+  },
+
+  botonPremium: {
+    background: "#007bff",
+    color: "white",
+    padding: 10,
+    border: "none",
+    borderRadius: 8,
+  },
+
+  grid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
+    gap: 20,
+  },
+
+  card: {
+    background: "white",
+    padding: 20,
+    borderRadius: 12,
+    cursor: "pointer",
+    transition: "0.2s",
+  },
+
+  icon: { fontSize: 30 },
+
+  loading: {
+    padding: 40,
+  },
+};
