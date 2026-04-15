@@ -8,6 +8,8 @@ type Empresa = {
   nombre_comercial: string;
   pago_habilitado: boolean;
   fecha_vencimiento?: string;
+  tipo_suscripcion: "mensual" | "por_pedido";
+  saldo: number;
 };
 
 export default function PanelPage() {
@@ -17,6 +19,19 @@ export default function PanelPage() {
 
   const empresaId = empresa?.id ?? null;
 
+  // 🔒 PROTEGER PANEL (LOGIN)
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (!data.session) {
+        window.location.href = "/login";
+      }
+    }
+
+    checkSession();
+  }, []);
+
   // ✅ Cálculo de días restantes
   const diasRestantes = empresa?.fecha_vencimiento
     ? Math.ceil(
@@ -25,15 +40,16 @@ export default function PanelPage() {
       )
     : null;
 
-  // ✅ Estados derivados
   const licenciaVencida = diasRestantes !== null && diasRestantes < 0;
 
+  // 🔥 LÓGICA REAL DEL SISTEMA
   const activo =
-    empresa?.pago_habilitado &&
-    (diasRestantes === null || diasRestantes > 0);
+    empresa?.tipo_suscripcion === "mensual"
+      ? empresa?.pago_habilitado &&
+        (diasRestantes === null || diasRestantes > 0)
+      : empresa?.saldo > 0;
 
-  const accesoCaja =
-    empresa?.pago_habilitado && !licenciaVencida;
+  const accesoCaja = activo;
 
   useEffect(() => {
     cargarEmpresa();
@@ -122,6 +138,20 @@ export default function PanelPage() {
         <div>
           <h2>{empresa?.nombre_comercial}</h2>
 
+          {/* 🔥 INFO SEGÚN PLAN */}
+          {empresa?.tipo_suscripcion === "por_pedido" && (
+            <p style={{ marginTop: 5, fontSize: 13 }}>
+              💳 Saldo disponible: ${empresa?.saldo || 0}
+            </p>
+          )}
+
+          {empresa?.tipo_suscripcion === "mensual" && (
+            <p style={{ marginTop: 5, fontSize: 13 }}>
+              📅 Plan mensual activo
+            </p>
+          )}
+
+          {/* ESTADO */}
           <span
             style={{
               ...styles.badge,
@@ -139,24 +169,19 @@ export default function PanelPage() {
             </p>
           )}
 
-          {diasRestantes === 0 && (
-            <p style={styles.alertaWarning}>
-              ⚠️ Tu licencia vence hoy
-            </p>
-          )}
-
           {licenciaVencida && (
             <p style={styles.alertaError}>
-              ❌ Licencia vencida - sistema limitado
+              ❌ Licencia vencida
             </p>
           )}
         </div>
 
-        {!empresa?.pago_habilitado && (
-          <button style={styles.botonPremium} onClick={activarPago}>
-            🔓 Activar sistema
-          </button>
-        )}
+        {!empresa?.pago_habilitado &&
+          empresa?.tipo_suscripcion === "mensual" && (
+            <button style={styles.botonPremium} onClick={activarPago}>
+              🔓 Activar sistema
+            </button>
+          )}
       </div>
 
       {/* MODULOS */}
@@ -165,12 +190,12 @@ export default function PanelPage() {
           icon="💰"
           titulo="Caja"
           descripcion={
-            licenciaVencida
-              ? "Licencia vencida"
-              : "Cobrar y generar pedidos"
+            activo
+              ? "Cobrar y generar pedidos"
+              : "Sistema bloqueado"
           }
           link="/caja"
-          activo={accesoCaja} // 🔒 BLOQUEO REAL
+          activo={accesoCaja}
         />
 
         <Card
@@ -186,14 +211,6 @@ export default function PanelPage() {
           titulo="Productos"
           descripcion="Gestionar menú"
           link="/productos"
-          activo={true}
-        />
-
-        <Card
-          icon="📄"
-          titulo="Pedidos"
-          descripcion="Vista individual"
-          link="/pedidos/1"
           activo={true}
         />
       </div>

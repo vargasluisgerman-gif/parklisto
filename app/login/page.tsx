@@ -1,35 +1,37 @@
 "use client";
 
 import { useEffect } from "react";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+  const router = useRouter();
 
-  const loginWithGoogle = async () => {
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session) {
+        router.replace("/panel"); // 🔥 ya logueado → salta login
+      }
+    }
+
+    checkSession();
+  }, [router]);
+
+  async function login() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: "https://parklisto.vercel.app/auth/callback",
+      },
     });
-  };
+  }
 
   return (
     <div style={{ padding: 40 }}>
-      <h1>Ingreso Empresa</h1>
-      <button
-        onClick={loginWithGoogle}
-        style={{
-          padding: 10,
-          background: "black",
-          color: "white",
-          borderRadius: 6
-        }}
-      >
-        Ingresar con Google
-      </button>
+      <h1>Login</h1>
+      <button onClick={login}>Ingresar con Google</button>
     </div>
   );
 }

@@ -1,11 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState("");
+
+  const router = useRouter();
+
+  // 🔥 CHECK SI YA ESTÁ LOGUEADO
+  useEffect(() => {
+    async function checkSession() {
+      const { data } = await supabase.auth.getSession();
+
+      if (data.session) {
+        router.replace("/panel"); // 👉 directo al panel
+      } else {
+        setCheckingSession(false); // 👉 mostrar login
+      }
+    }
+
+    checkSession();
+  }, [router]);
 
   async function handleGoogleLogin() {
     setLoading(true);
@@ -24,12 +43,23 @@ export default function Home() {
     }
   }
 
+  // 🔄 mientras verifica sesión
+  if (checkingSession) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-100">
+        <p className="text-zinc-500 text-sm">Cargando...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-100">
       <div className="w-full max-w-sm bg-white rounded-2xl shadow-lg p-8">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-zinc-900">🍔 PARKLISTO</h1>
-          <p className="text-zinc-500 text-sm mt-1">Sistema de pedidos con QR</p>
+          <p className="text-zinc-500 text-sm mt-1">
+            Sistema de pedidos con QR
+          </p>
         </div>
 
         {error && (
@@ -48,6 +78,7 @@ export default function Home() {
             <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             <path fill="none" d="M0 0h48v48H0z"/>
           </svg>
+
           {loading ? "Redirigiendo..." : "Continuar con Google"}
         </button>
 
