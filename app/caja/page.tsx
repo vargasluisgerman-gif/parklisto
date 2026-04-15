@@ -19,11 +19,17 @@ export default function CajaPage() {
   const [pedido, setPedido] = useState<Item[]>([]);
   const [pedidoId, setPedidoId] = useState<number | null>(null);
   const [cliente, setCliente] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [fecha, setFecha] = useState("");
 
   useEffect(() => {
     fetch("/api/productos")
       .then((res) => res.json())
       .then((data) => setProductos(data.data || []));
+
+    // 🔥 fecha actual
+    const ahora = new Date();
+    setFecha(ahora.toLocaleString());
   }, []);
 
   function agregarProducto(producto: Producto) {
@@ -60,35 +66,56 @@ export default function CajaPage() {
   );
 
   async function finalizarPedido() {
-    if (pedido.length === 0) return alert("Agregar productos");
+    if (pedido.length === 0) {
+      alert("Agregar productos");
+      return;
+    }
 
-    const res = await fetch("/api/crear-pedido", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        carrito_id: 5,
-        nombre: cliente || "Cliente Mostrador",
-        productos: pedido.map((item) => ({
-          producto_id: item.producto.id,
-          cantidad: item.cantidad,
-        })),
-      }),
-    });
+    setLoading(true);
 
-    const data = await res.json();
+    try {
+      const res = await fetch("/api/crear-pedido", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          carrito_id: 5,
+          nombre: cliente || "Cliente Mostrador",
+          productos: pedido.map((item) => ({
+            producto_id: item.producto.id,
+            cantidad: item.cantidad,
+          })),
+        }),
+      });
 
-    setPedidoId(data.pedido_id);
+      const data = await res.json();
 
-    // 🔥 RESET AUTOMÁTICO
-    setPedido([]);
-    setCliente("");
+      // 🔥 VALIDACIÓN REAL
+      if (!res.ok || !data.pedido_id) {
+        console.error("ERROR BACKEND:", data);
+        alert(data.error || "Error al crear pedido");
+        setLoading(false);
+        return;
+      }
 
-    // 🔥 limpiar QR después de 10 segundos
-    setTimeout(() => {
-      setPedidoId(null);
-    }, 10000);
+      // ✅ Pedido OK
+      setPedidoId(data.pedido_id);
+
+      setPedido([]);
+      setCliente("");
+
+      // limpiar QR después de 10s
+      setTimeout(() => {
+        setPedidoId(null);
+      }, 10000);
+
+    } catch (err) {
+      console.error("ERROR GENERAL:", err);
+      alert("Error de conexión");
+    }
+
+    setLoading(false);
   }
 
   function nuevoPedido() {
@@ -107,8 +134,8 @@ export default function CajaPage() {
           padding: 20,
           backgroundColor: "#f4f6f8",
           overflowY: "auto",
-	  fontSize: 25,
-	  fontWeight: "bold",
+          fontSize: 25,
+          fontWeight: "bold",
         }}
       >
         <h2>Productos</h2>
@@ -118,7 +145,7 @@ export default function CajaPage() {
             display: "grid",
             gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
             gap: 15,
-	    fontSize: 16,
+            fontSize: 16,
           }}
         >
           {productos.map((p) => (
@@ -155,6 +182,11 @@ export default function CajaPage() {
       >
         <h2>Pedido</h2>
 
+        {/* 🔥 FECHA */}
+        <p style={{ fontSize: 14, color: "#666" }}>
+          🕒 {fecha}
+        </p>
+
         {/* CLIENTE */}
         <input
           placeholder="Nombre del cliente"
@@ -184,21 +216,15 @@ export default function CajaPage() {
               <span>{item.producto.nombre_producto}</span>
 
               <div>
-                <button
-                  onClick={() => cambiarCantidad(item.producto.id, -1)}
-                  style={{ fontSize: 18 }}
-                >
+                <button onClick={() => cambiarCantidad(item.producto.id, -1)}>
                   -
                 </button>
 
-                <span style={{ margin: "0 10px", fontSize: 18 }}>
+                <span style={{ margin: "0 10px" }}>
                   {item.cantidad}
                 </span>
 
-                <button
-                  onClick={() => cambiarCantidad(item.producto.id, 1)}
-                  style={{ fontSize: 18 }}
-                >
+                <button onClick={() => cambiarCantidad(item.producto.id, 1)}>
                   +
                 </button>
               </div>
@@ -208,12 +234,13 @@ export default function CajaPage() {
 
         <h2>Total: ${total}</h2>
 
-        {/* BOTONES */}
+        {/* BOTÓN FINALIZAR */}
         <button
           onClick={finalizarPedido}
+          disabled={loading}
           style={{
             padding: 18,
-            backgroundColor: "#28a745",
+            backgroundColor: loading ? "#999" : "#28a745",
             color: "white",
             border: "none",
             borderRadius: 10,
@@ -222,7 +249,7 @@ export default function CajaPage() {
             marginTop: 10,
           }}
         >
-          Finalizar pedido
+          {loading ? "Procesando..." : "Finalizar pedido"}
         </button>
 
         <button
