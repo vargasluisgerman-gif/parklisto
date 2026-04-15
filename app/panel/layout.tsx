@@ -41,9 +41,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
         <h2 style={{ fontWeight: "bold", marginBottom: 30 }}>🍔 PARKLISTO</h2>
 
         <div onClick={() => router.push("/panel")} style={navClass("/panel")}>Panel</div>
-        <div onClick={() => router.push("/caja")} style={navClass("/caja")}>Caja</div>
-        <div onClick={() => router.push("/dashboard")} style={navClass("/dashboard")}>Cocina</div>
-        <div onClick={() => router.push("/productos")} style={navClass("/productos")}>Productos</div>
+<div onClick={() => router.push("/panel/caja")} style={navClass("/panel/caja")}>Caja</div>
+<div onClick={() => router.push("/panel/dashboard")} style={navClass("/panel/dashboard")}>Cocina</div>
+<div onClick={() => router.push("/panel/productos")} style={navClass("/panel/productos")}>Productos</div>
 
         <div style={{ marginTop: "auto" }}>
           <button onClick={cerrarSesion} style={{
