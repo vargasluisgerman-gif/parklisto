@@ -47,7 +47,7 @@ export default function PanelPage() {
     empresa?.tipo_suscripcion === "mensual"
       ? empresa?.pago_habilitado &&
         (diasRestantes === null || diasRestantes > 0)
-      : empresa?.saldo > 0;
+      : (empresa?.saldo ?? 0) > 0;
 
   const accesoCaja = activo;
 
