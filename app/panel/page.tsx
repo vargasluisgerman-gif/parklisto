@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 type Empresa = {
   id: number;
@@ -17,26 +18,23 @@ export default function PanelPage() {
   const [metricas, setMetricas] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const router = useRouter();
   const empresaId = empresa?.id ?? null;
 
-  // 🔒 PROTEGER PANEL
+  // 🔒 AUTH
   useEffect(() => {
-    async function checkSession() {
-      const { data } = await supabase.auth.getSession();
-      if (!data.session) {
-        window.location.href = "/login";
-      }
-    }
-    checkSession();
-  }, []);
+    supabase.auth.getSession().then(({ data }) => {
+      if (!data.session) router.replace("/login");
+    });
+  }, [router]);
 
   // 🔓 LOGOUT
   async function cerrarSesion() {
     await supabase.auth.signOut();
-    window.location.href = "/";
+    router.replace("/");
   }
 
-  // 📅 VENCIMIENTO
+  // 📅 FECHAS
   const diasRestantes = empresa?.fecha_vencimiento
     ? Math.ceil(
         (new Date(empresa.fecha_vencimiento).getTime() - Date.now()) /
@@ -44,43 +42,41 @@ export default function PanelPage() {
       )
     : null;
 
-  const licenciaVencida = diasRestantes !== null && diasRestantes < 0;
-
-  // 🔥 LÓGICA NEGOCIO
   const activo =
     empresa?.tipo_suscripcion === "mensual"
       ? empresa?.pago_habilitado &&
         (diasRestantes === null || diasRestantes > 0)
       : (empresa?.saldo ?? 0) > 0;
 
-  const accesoCaja = activo;
-
+  // 🔄 CARGA INICIAL
   useEffect(() => {
     cargarEmpresa();
     cargarMetricas();
   }, []);
 
+  // 🔥 REALTIME + REFRESH
   useEffect(() => {
     if (!empresaId) return;
 
     const channel = supabase
-      .channel("panel-realtime")
+      .channel("panel")
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "pedidos",
-          filter: `empresa_id=eq.${empresaId}`,
-        },
+        { event: "*", schema: "public", table: "pedidos" },
         () => {
           cargarMetricas();
         }
       )
       .subscribe();
 
+    // 🔁 fallback cada 10s
+    const interval = setInterval(() => {
+      cargarMetricas();
+    }, 10000);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
   }, [empresaId]);
 
@@ -97,87 +93,56 @@ export default function PanelPage() {
     setMetricas(json.data);
   }
 
-  async function activarPago() {
-    await fetch("/api/empresa/pagar", { method: "POST" });
-    cargarEmpresa();
-  }
-
-  if (loading) return <p style={styles.loading}>Cargando...</p>;
+  if (loading) return <p style={{ padding: 40 }}>Cargando...</p>;
 
   return (
-    <div style={styles.app}>
-      {/* HEADER */}
-      <div style={styles.header}>
-        <div>
-          <h1 style={styles.logo}>🍔 PARKLISTO</h1>
-          <span style={styles.sub}>Sistema de gestión</span>
+    <div style={styles.layout}>
+      
+      {/* SIDEBAR */}
+      <div style={styles.sidebar}>
+        <h2 style={styles.sidebarTitle}>🍔 PARKLISTO</h2>
+
+        <NavItem label="Panel" onClick={() => router.push("/panel")} />
+        <NavItem label="Caja" onClick={() => router.push("/caja")} />
+        <NavItem label="Cocina" onClick={() => router.push("/dashboard")} />
+        <NavItem label="Productos" onClick={() => router.push("/productos")} />
+
+        <div style={{ marginTop: "auto" }}>
+          <button onClick={cerrarSesion} style={styles.logout}>
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      {/* CONTENIDO */}
+      <div style={styles.content}>
+        
+        {/* HEADER */}
+        <div style={styles.header}>
+          <h1 style={styles.headerTitle}>Panel principal</h1>
         </div>
 
-        <button
-          onClick={cerrarSesion}
-          style={styles.logoutBtn}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.background = "#dc3545";
-            e.currentTarget.style.color = "white";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.background = "transparent";
-            e.currentTarget.style.color = "#dc3545";
-          }}
-        >
-          🚪 Cerrar sesión
-        </button>
-      </div>
+        {/* MÉTRICAS */}
+        <div style={styles.metrics}>
+          <Metric title="Ventas" value={`$${metricas?.totalVentas || 0}`} />
+          <Metric title="Pedidos" value={metricas?.cantidadPedidos || 0} />
+          <Metric title="Ticket" value={`$${metricas?.ticketPromedio || 0}`} />
+        </div>
 
-      {/* MÉTRICAS */}
-      <div style={styles.metricasGrid}>
-        <Metrica titulo="💰 Ventas hoy" valor={`$${metricas?.totalVentas || 0}`} />
-        <Metrica titulo="📦 Pedidos" valor={metricas?.cantidadPedidos || 0} />
-        <Metrica titulo="🧾 Ticket" valor={`$${metricas?.ticketPromedio || 0}`} />
-        <Metrica titulo="👨‍🍳 En cocina" valor={metricas?.enPreparacion || 0} />
-      </div>
-
-      {/* EMPRESA */}
-      <div style={styles.cardPrincipal}>
-        <div>
+        {/* EMPRESA */}
+        <div style={styles.card}>
           <h2>{empresa?.nombre_comercial}</h2>
-
-          {empresa?.tipo_suscripcion === "por_pedido" && (
-            <p>💳 Saldo: ${empresa?.saldo ?? 0}</p>
-          )}
-
-          {empresa?.tipo_suscripcion === "mensual" && (
-            <p>📅 Plan mensual activo</p>
-          )}
-
-          <span
-            style={{
-              ...styles.badge,
-              backgroundColor: activo ? "#d4edda" : "#f8d7da",
-              color: activo ? "#155724" : "#721c24",
-            }}
-          >
-            {activo ? "🟢 Activo" : "🔴 Bloqueado"}
-          </span>
-
-          {licenciaVencida && (
-            <p style={styles.alertaError}>Licencia vencida</p>
-          )}
+          <p>
+            {empresa?.tipo_suscripcion === "mensual"
+              ? "Plan mensual"
+              : `Saldo: $${empresa?.saldo ?? 0}`}
+          </p>
         </div>
 
-        {!empresa?.pago_habilitado &&
-          empresa?.tipo_suscripcion === "mensual" && (
-            <button style={styles.botonPremium} onClick={activarPago}>
-              Activar sistema
-            </button>
-          )}
-      </div>
-
-      {/* MODULOS */}
-      <div style={styles.grid}>
-        <Card icon="💰" titulo="Caja" link="/caja" activo={accesoCaja} />
-        <Card icon="👨‍🍳" titulo="Cocina" link="/dashboard" activo />
-        <Card icon="📦" titulo="Productos" link="/productos" activo />
+        {/* FOOTER */}
+        <div style={styles.footer}>
+          © PARKLISTO 2026 — Todos los derechos reservados
+        </div>
       </div>
     </div>
   );
@@ -185,33 +150,19 @@ export default function PanelPage() {
 
 /* COMPONENTES */
 
-function Card({ icon, titulo, link, activo }: any) {
+function NavItem({ label, onClick }: any) {
   return (
-    <div
-      style={{
-        ...styles.card,
-        opacity: activo ? 1 : 0.5,
-      }}
-      onClick={() => activo && (window.location.href = link)}
-      onMouseEnter={(e) => {
-        if (activo) e.currentTarget.style.transform = "translateY(-5px)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = "translateY(0)";
-      }}
-    >
-      <div style={styles.icon}>{icon}</div>
-      <h3>{titulo}</h3>
-      <p>{activo ? "Entrar" : "Bloqueado"}</p>
+    <div style={styles.navItem} onClick={onClick}>
+      {label}
     </div>
   );
 }
 
-function Metrica({ titulo, valor }: any) {
+function Metric({ title, value }: any) {
   return (
-    <div style={styles.metricaCard}>
-      <p>{titulo}</p>
-      <h2>{valor}</h2>
+    <div style={styles.metric}>
+      <p>{title}</p>
+      <h2>{value}</h2>
     </div>
   );
 }
@@ -219,95 +170,76 @@ function Metrica({ titulo, valor }: any) {
 /* ESTILOS */
 
 const styles: any = {
-  app: {
+  layout: {
+    display: "flex",
     minHeight: "100vh",
-    padding: 30,
-    background: "#f5f7fa",
     fontFamily: "system-ui",
   },
 
-  header: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "center",
-    background: "white",
+  sidebar: {
+    width: 220,
+    background: "#111",
+    color: "white",
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
+    display: "flex",
+    flexDirection: "column",
   },
 
-  logo: { margin: 0 },
-  sub: { color: "#666" },
+  sidebarTitle: {
+    fontWeight: "bold",
+    marginBottom: 30,
+  },
 
-  logoutBtn: {
-    background: "transparent",
-    border: "1px solid #dc3545",
-    color: "#dc3545",
-    padding: "8px 14px",
-    borderRadius: 8,
+  navItem: {
+    padding: 10,
     cursor: "pointer",
   },
 
-  metricasGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-    gap: 15,
+  logout: {
+    marginTop: 20,
+    padding: 10,
+    background: "#dc3545",
+    border: "none",
+    color: "white",
+    borderRadius: 6,
+  },
+
+  content: {
+    flex: 1,
+    padding: 30,
+    background: "#f5f7fa",
+  },
+
+  header: {
     marginBottom: 20,
   },
 
-  metricaCard: {
-    background: "white",
-    padding: 15,
-    borderRadius: 12,
+  headerTitle: {
+    fontWeight: "bold",
+    fontSize: 28,
   },
 
-  cardPrincipal: {
+  metrics: {
+    display: "flex",
+    gap: 20,
+    marginBottom: 20,
+  },
+
+  metric: {
     background: "white",
     padding: 20,
-    borderRadius: 12,
-    marginBottom: 20,
-    display: "flex",
-    justifyContent: "space-between",
-  },
-
-  badge: {
-    display: "inline-block",
-    padding: "6px 12px",
-    borderRadius: 20,
-    marginTop: 10,
-  },
-
-  alertaError: {
-    color: "red",
-    marginTop: 10,
-  },
-
-  botonPremium: {
-    background: "#007bff",
-    color: "white",
-    padding: 10,
-    border: "none",
-    borderRadius: 8,
-  },
-
-  grid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))",
-    gap: 20,
+    borderRadius: 10,
   },
 
   card: {
     background: "white",
     padding: 20,
-    borderRadius: 12,
-    cursor: "pointer",
-    transition: "0.2s",
+    borderRadius: 10,
   },
 
-  icon: { fontSize: 30 },
-
-  loading: {
-    padding: 40,
+  footer: {
+    marginTop: 40,
+    fontSize: 12,
+    color: "#777",
   },
 };
