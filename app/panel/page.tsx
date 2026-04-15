@@ -62,11 +62,11 @@ export default function PanelPage() {
   if (loading) return <p style={{ padding: 40 }}>Cargando...</p>;
 
   return (
-    <div style={{ padding: 30 }}>
+    <div style={{ padding: 30, display: "flex", flexDirection: "column", alignItems: "center" }}>
       <h1 style={{ fontWeight: "bold", fontSize: 28, marginBottom: 20 }}>Panel Principal</h1>
 
       {/* MÉTRICAS */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 20, marginBottom: 20, justifyContent: "center" }}>
         <Metric title="Ventas" value={`$${metricas?.totalVentas || 0}`} />
         <Metric title="Pedidos" value={metricas?.cantidadPedidos || 0} />
         <Metric title="Ticket" value={`$${metricas?.ticketPromedio || 0}`} />
@@ -87,9 +87,16 @@ export default function PanelPage() {
 
 function Metric({ title, value }: any) {
   return (
-    <div style={{ background: "white", padding: 20, borderRadius: 10 }}>
-      <p>{title}</p>
-      <h2>{value}</h2>
+    <div style={{
+      background: "white",
+      padding: 20,
+      borderRadius: 10,
+      textAlign: "center",
+      minWidth: 140,
+      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+    }}>
+      <p style={{ fontWeight: "bold", fontSize: 14, color: "#555", margin: 0 }}>{title}</p>
+      <h2 style={{ fontWeight: "bold", fontSize: 28, margin: "8px 0 0 0" }}>{value}</h2>
     </div>
   );
 }
