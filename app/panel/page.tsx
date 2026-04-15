@@ -178,6 +178,7 @@ export default function PanelPage() {
         <Card icon="💰" titulo="Caja" link="/caja" activo={accesoCaja} />
         <Card icon="👨‍🍳" titulo="Cocina" link="/dashboard" activo />
         <Card icon="📦" titulo="Productos" link="/productos" activo />
+	<Card icon="📄" titulo="Pedidos" link="/dashboard" activo />
       </div>
     </div>
   );
