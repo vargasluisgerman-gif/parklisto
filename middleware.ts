@@ -27,16 +27,22 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname === "/";
+  const pathname = request.nextUrl.pathname;
+
+  // Excluir rutas de auth
+  if (pathname.startsWith("/auth")) {
+    return supabaseResponse;
+  }
+
   const isProtectedRoute = ["/panel", "/caja", "/dashboard", "/productos"].some(
-    (route) => request.nextUrl.pathname.startsWith(route)
+    (route) => pathname.startsWith(route)
   );
 
   if (!user && isProtectedRoute) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (user && isAuthRoute) {
+  if (user && pathname === "/") {
     return NextResponse.redirect(new URL("/panel", request.url));
   }
 
@@ -44,5 +50,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/", "/panel/:path*", "/caja/:path*", "/dashboard/:path*", "/productos/:path*"],
+  matcher: ["/", "/panel/:path*", "/caja/:path*", "/dashboard/:path*", "/productos/:path*", "/auth/:path*"],
 };
