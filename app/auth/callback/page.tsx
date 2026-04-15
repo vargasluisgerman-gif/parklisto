@@ -8,35 +8,41 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    async function handleCallback() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.replace("/panel");
-        return;
-      }
+    async function handleAuth() {
+      try {
+        // 🔥 CLAVE: procesar el código de Google
+        const { error } = await supabase.auth.exchangeCodeForSession(
+          window.location.href
+        );
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if (event === "SIGNED_IN" && session) {
-          subscription.unsubscribe();
-          router.replace("/panel");
+        if (error) {
+          console.error("Error auth:", error.message);
+          router.replace("/login");
+          return;
         }
-      });
 
-      setTimeout(() => {
-        subscription.unsubscribe();
-        router.replace("/panel");
-      }, 3000);
+        // 🔥 obtener sesión ya procesada
+        const { data } = await supabase.auth.getSession();
+
+        if (data.session) {
+          router.replace("/panel");
+        } else {
+          router.replace("/login");
+        }
+      } catch (err) {
+        console.error("Error general:", err);
+        router.replace("/login");
+      }
     }
 
-    handleCallback();
+    handleAuth();
   }, [router]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-100">
-      <div className="text-center">
-        <p className="text-zinc-600 font-medium">Iniciando sesión...</p>
-        <p className="text-zinc-400 text-sm mt-1">Serás redirigido en unos segundos</p>
-      </div>
+      <p className="text-zinc-500 text-sm">
+        Iniciando sesión...
+      </p>
     </div>
   );
 }
