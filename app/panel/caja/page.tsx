@@ -98,7 +98,7 @@ export default function CajaPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh" }}>
+    <div style={{ display: "flex", height: "100vh", flexDirection: "row" }}>
       
       {/* PRODUCTOS */}
       <div
@@ -109,6 +109,7 @@ export default function CajaPage() {
           overflowY: "auto",
 	  fontSize: 25,
 	  fontWeight: "bold",
+	  minWidth: 0,
         }}
       >
         <h2>Productos</h2>
@@ -151,6 +152,8 @@ export default function CajaPage() {
           borderLeft: "2px solid #ddd",
           display: "flex",
           flexDirection: "column",
+	  minWidth: 200,
+	  overflowY: "auto",
         }}
       >
         <h2>Pedido</h2>
