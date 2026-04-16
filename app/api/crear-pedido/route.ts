@@ -1,84 +1,54 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { withLicencia } from "@/lib/withLicencia";
 
-export const POST = withLicencia(async (req: Request, empresa: any) => {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
+    console.log("BODY:", body);
 
-    const { carrito_id, nombre, productos, items } = body;
-    const lista = productos || items;
+    const { carrito_id, nombre, productos } = body;
 
-    if (!carrito_id || !lista || lista.length === 0) {
+    if (!carrito_id || !productos || productos.length === 0) {
       return NextResponse.json(
         { error: "Datos incompletos" },
         { status: 400 }
       );
     }
 
-    const nombreFinal = nombre || "Cliente Mostrador";
-
-    // ============================
-    // 🔥 CONTROL DE PLAN
-    // ============================
-
-    // traer configuración
-    const { data: config, error: errorConfig } = await supabase
-      .from("configuración")
-      .select("*")
-      .eq("id", 1)
-      .single();
-
-    if (errorConfig || !config) {
-      return NextResponse.json(
-        { error: "Configuración no encontrada" },
-        { status: 500 }
-      );
-    }
-
-    if (empresa.tipo_suscripción === "por_pedido") {
-      if (empresa.saldo < config.precio_por_pedido) {
-        return NextResponse.json(
-          { error: "Saldo insuficiente" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // ============================
-    // 1️⃣ Obtener número de pedido
-    // ============================
-
-    const { data: ultimoPedido } = await supabase
+    // 🔹 obtener último número
+    const { data: ultimoPedido, error: errorUltimo } = await supabase
       .from("pedidos")
       .select("numero")
       .order("numero", { ascending: false })
       .limit(1);
+
+    if (errorUltimo) {
+      console.log("ERROR ULTIMO:", errorUltimo);
+      return NextResponse.json({ error: errorUltimo.message }, { status: 500 });
+    }
 
     const nuevoNumero =
       ultimoPedido && ultimoPedido.length > 0
         ? ultimoPedido[0].numero + 1
         : 1;
 
-    // ============================
-    // 2️⃣ Crear pedido
-    // ============================
-
+    // 🔹 crear pedido
     const { data: pedidoData, error: errorPedido } = await supabase
       .from("pedidos")
       .insert([
         {
           carrito_id,
           numero: nuevoNumero,
-          nombre: nombreFinal,
+          nombre: nombre || "Cliente",
           estado: "Esperando",
           total: 0,
-          empresa_id: empresa.id,
+          empresa_id: 1,
         },
       ])
       .select();
 
     if (errorPedido) {
+      console.log("ERROR PEDIDO:", errorPedido);
       return NextResponse.json(
         { error: errorPedido.message },
         { status: 500 }
@@ -87,11 +57,8 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
 
     const pedido = pedidoData[0];
 
-    // ============================
-    // 3️⃣ Obtener productos
-    // ============================
-
-    const ids = lista.map((p: any) => p.producto_id);
+    // 🔹 traer productos
+    const ids = productos.map((p: any) => p.producto_id);
 
     const { data: productosDB, error: errorProductos } = await supabase
       .from("productos")
@@ -99,104 +66,64 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
       .in("id", ids);
 
     if (errorProductos) {
+      console.log("ERROR PRODUCTOS:", errorProductos);
       return NextResponse.json(
         { error: errorProductos.message },
         { status: 500 }
       );
     }
 
-    // validar carrito
-    for (const prod of productosDB) {
-      if (prod.carrito_id !== carrito_id) {
-        return NextResponse.json(
-          { error: "Producto no pertenece al carrito" },
-          { status: 400 }
-        );
-      }
-    }
+    // 🔹 detalle
+    let total = 0;
 
-    // ============================
-    // 4️⃣ Armar detalle
-    // ============================
+    const detalle = productos.map((p: any) => {
+      const prod = productosDB.find((x) => x.id === p.producto_id);
 
-    let totalCalculado = 0;
-
-    const detalle = lista.map((p: any) => {
-      const productoReal = productosDB.find(
-        (db) => db.id === p.producto_id
-      );
-
-      if (!productoReal) {
+      if (!prod) {
         throw new Error("Producto no encontrado");
       }
 
-      const subtotal = productoReal.precio * p.cantidad;
-      totalCalculado += subtotal;
+      const subtotal = prod.precio * p.cantidad;
+      total += subtotal;
 
       return {
         pedido_id: pedido.id,
         producto_id: p.producto_id,
         cantidad: p.cantidad,
-        precio_unitario: productoReal.precio,
+        precio_unitario: prod.precio,
       };
     });
 
-    // ============================
-    // 5️⃣ Insertar detalle
-    // ============================
-
+    // 🔹 insertar detalle
     const { error: errorDetalle } = await supabase
       .from("pedido_productos")
       .insert(detalle);
 
     if (errorDetalle) {
+      console.log("ERROR DETALLE:", errorDetalle);
       return NextResponse.json(
         { error: errorDetalle.message },
         { status: 500 }
       );
     }
 
-    // ============================
-    // 6️⃣ Actualizar total
-    // ============================
-
+    // 🔹 actualizar total
     const { error: errorTotal } = await supabase
       .from("pedidos")
-      .update({ total: totalCalculado })
+      .update({ total })
       .eq("id", pedido.id);
 
     if (errorTotal) {
+      console.log("ERROR TOTAL:", errorTotal);
       return NextResponse.json(
         { error: errorTotal.message },
         { status: 500 }
       );
     }
 
-    // ============================
-    // 🔥 DESCONTAR SALDO (AL FINAL)
-    // ============================
-
-    if (empresa.tipo_suscripción === "por_pedido") {
-      const { error: errorSaldo } = await supabase
-        .from("empresas")
-        .update({
-          saldo: empresa.saldo - config.precio_por_pedido,
-        })
-        .eq("id", empresa.id);
-
-      if (errorSaldo) {
-        console.log("ERROR DESCONTANDO SALDO:", errorSaldo);
-      }
-    }
-
-    // ============================
-    // ✅ RESPUESTA FINAL
-    // ============================
-
     return NextResponse.json({
-      message: "Pedido creado correctamente",
       pedido_id: pedido.id,
-      total: totalCalculado,
+      total,
     });
 
   } catch (err: any) {
@@ -206,4 +133,4 @@ export const POST = withLicencia(async (req: Request, empresa: any) => {
       { status: 500 }
     );
   }
-});
+}
