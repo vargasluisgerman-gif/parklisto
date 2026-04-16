@@ -1,5 +1,5 @@
 "use client";
-
+import { getEmpresaUsuario } from "@/lib/getEmpresa";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
@@ -47,7 +47,12 @@ export default function PanelPage() {
   }, [empresaId]);
 
   async function cargarEmpresa() {
-    const res = await fetch("/api/empresa?id=1");
+    const empresaId = await getEmpresaUsuario();
+    if (!empresaId) {
+      console.error("No se encontró empresa");
+      return;
+    }
+    const res = await fetch(`/api/empresa?id=${empresaId}`);
     const json = await res.json();
     setEmpresa(json.data);
     setLoading(false);
@@ -59,26 +64,56 @@ export default function PanelPage() {
     setMetricas(json.data);
   }
 
-  if (loading) return <p style={{ padding: 40 }}>Cargando...</p>;
+  if (loading) return (
+    <div style={{ padding: 40, backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
+      <p style={{ color: "#333" }}>Cargando...</p>
+    </div>
+  );
 
   return (
-    <div style={{ padding: 30, display: "flex", flexDirection: "column", alignItems: "center" }}>
-      <h1 style={{ fontWeight: "bold", fontSize: 28, marginBottom: 20 }}>Panel Principal</h1>
+    <div style={{
+      padding: 30,
+      backgroundColor: "#f5f7fa",
+      minHeight: "100vh",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+    }}>
+      <h1 style={{ fontWeight: "bold", fontSize: 28, marginBottom: 20, color: "#111" }}>
+        Panel Principal
+      </h1>
 
       {/* MÉTRICAS */}
-      <div style={{ display: "flex", gap: 20, marginBottom: 20, justifyContent: "center" }}>
+      <div style={{
+        display: "flex",
+        gap: 20,
+        marginBottom: 20,
+        justifyContent: "center",
+        flexWrap: "wrap",
+      }}>
         <Metric title="Ventas" value={`$${metricas?.totalVentas || 0}`} />
         <Metric title="Pedidos" value={metricas?.cantidadPedidos || 0} />
         <Metric title="Ticket" value={`$${metricas?.ticketPromedio || 0}`} />
       </div>
 
       {/* EMPRESA */}
-      <div style={{ background: "white", padding: 20, borderRadius: 10 }}>
-        <h2>{empresa?.nombre_comercial}</h2>
-        <p>{empresa?.tipo_suscripcion === "mensual" ? "Plan mensual" : `Saldo: $${empresa?.saldo ?? 0}`}</p>
+      <div style={{
+        backgroundColor: "#ffffff",
+        padding: 20,
+        borderRadius: 10,
+        width: "100%",
+        maxWidth: 400,
+        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      }}>
+        <h2 style={{ color: "#111", fontWeight: "bold", marginBottom: 8 }}>
+          {empresa?.nombre_comercial}
+        </h2>
+        <p style={{ color: "#555", margin: 0 }}>
+          {empresa?.tipo_suscripcion === "mensual" ? "Plan mensual" : `Saldo: $${empresa?.saldo ?? 0}`}
+        </p>
       </div>
 
-      <div style={{ marginTop: 40, fontSize: 12, color: "#777" }}>
+      <div style={{ marginTop: 40, fontSize: 12, color: "#999" }}>
         © PARKLISTO 2026 — Todos los derechos reservados
       </div>
     </div>
@@ -88,15 +123,19 @@ export default function PanelPage() {
 function Metric({ title, value }: any) {
   return (
     <div style={{
-      background: "white",
+      backgroundColor: "#ffffff",
       padding: 20,
       borderRadius: 10,
       textAlign: "center",
       minWidth: 140,
       boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
     }}>
-      <p style={{ fontWeight: "bold", fontSize: 14, color: "#555", margin: 0 }}>{title}</p>
-      <h2 style={{ fontWeight: "bold", fontSize: 28, margin: "8px 0 0 0" }}>{value}</h2>
+      <p style={{ fontWeight: "bold", fontSize: 14, color: "#555", margin: 0 }}>
+        {title}
+      </p>
+      <h2 style={{ fontWeight: "bold", fontSize: 28, margin: "8px 0 0 0", color: "#111" }}>
+        {value}
+      </h2>
     </div>
   );
 }
