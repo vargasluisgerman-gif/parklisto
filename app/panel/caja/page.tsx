@@ -19,6 +19,14 @@ export default function CajaPage() {
   const [pedido, setPedido] = useState<Item[]>([]);
   const [pedidoId, setPedidoId] = useState<number | null>(null);
   const [cliente, setCliente] = useState("");
+  const [esMobil, setEsMobil] = useState(false);
+
+  useEffect(() => {
+    const check = () => setEsMobil(window.innerWidth < 640);
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   useEffect(() => {
     fetch("/api/productos")
@@ -29,7 +37,6 @@ export default function CajaPage() {
   function agregarProducto(producto: Producto) {
     setPedido((prev) => {
       const existe = prev.find((p) => p.producto.id === producto.id);
-
       if (existe) {
         return prev.map((p) =>
           p.producto.id === producto.id
@@ -37,7 +44,6 @@ export default function CajaPage() {
             : p
         );
       }
-
       return [...prev, { producto, cantidad: 1 }];
     });
   }
@@ -64,9 +70,7 @@ export default function CajaPage() {
 
     const res = await fetch("/api/crear-pedido", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         carrito_id: 5,
         nombre: cliente || "Cliente Mostrador",
@@ -78,14 +82,10 @@ export default function CajaPage() {
     });
 
     const data = await res.json();
-
     setPedidoId(data.pedido_id);
-
-    // 🔥 RESET AUTOMÁTICO
     setPedido([]);
     setCliente("");
 
-    // 🔥 limpiar QR después de 10 segundos
     setTimeout(() => {
       setPedidoId(null);
     }, 10000);
@@ -98,30 +98,30 @@ export default function CajaPage() {
   }
 
   return (
-    <div style={{ display: "flex", height: "100vh", flexDirection: "row" }}>
-      
-      {/* PRODUCTOS */}
-      <div
-        style={{
-          flex: 2,
-          padding: 20,
-          backgroundColor: "#f4f6f8",
-          overflowY: "auto",
-	  fontSize: 25,
-	  fontWeight: "bold",
-	  minWidth: 0,
-        }}
-      >
-        <h2>Productos</h2>
+    <div style={{
+      display: "flex",
+      height: esMobil ? "auto" : "100vh",
+      minHeight: "100vh",
+      flexDirection: esMobil ? "column" : "row",
+    }}>
 
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-            gap: 15,
-	    fontSize: 16,
-          }}
-        >
+      {/* PRODUCTOS */}
+      <div style={{
+        flex: 2,
+        padding: 20,
+        backgroundColor: "#f4f6f8",
+        overflowY: "auto",
+        fontSize: 25,
+        fontWeight: "bold",
+        minWidth: 0,
+      }}>
+        <h2>Productos</h2>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gap: 15,
+          fontSize: 16,
+        }}>
           {productos.map((p) => (
             <button
               key={p.id}
@@ -145,17 +145,15 @@ export default function CajaPage() {
       </div>
 
       {/* PEDIDO */}
-      <div
-        style={{
-          flex: 1,
-          padding: 20,
-          borderLeft: "2px solid #ddd",
-          display: "flex",
-          flexDirection: "column",
-	  minWidth: 200,
-	  overflowY: "auto",
-        }}
-      >
+      <div style={{
+        flex: 1,
+        padding: 20,
+        borderLeft: esMobil ? "none" : "2px solid #ddd",
+        borderTop: esMobil ? "2px solid #ddd" : "none",
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+      }}>
         <h2>Pedido</h2>
 
         {/* CLIENTE */}
@@ -185,25 +183,18 @@ export default function CajaPage() {
               }}
             >
               <span>{item.producto.nombre_producto}</span>
-
               <div>
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, -1)}
                   style={{ fontSize: 18 }}
-                >
-                  -
-                </button>
-
+                >-</button>
                 <span style={{ margin: "0 10px", fontSize: 18 }}>
                   {item.cantidad}
                 </span>
-
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, 1)}
                   style={{ fontSize: 18 }}
-                >
-                  +
-                </button>
+                >+</button>
               </div>
             </div>
           ))}
@@ -211,7 +202,6 @@ export default function CajaPage() {
 
         <h2>Total: ${total}</h2>
 
-        {/* BOTONES */}
         <button
           onClick={finalizarPedido}
           style={{
@@ -243,16 +233,13 @@ export default function CajaPage() {
           Cancelar / Nuevo pedido
         </button>
 
-        {/* QR */}
         {pedidoId && (
           <div style={{ marginTop: 20, textAlign: "center" }}>
             <h3>Pedido #{pedidoId}</h3>
-
             <QRCodeCanvas
               value={`${window.location.origin}/pedidos/${pedidoId}`}
               size={180}
             />
-
             <p>Mostrar QR al cliente</p>
           </div>
         )}
