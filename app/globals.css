@@ -1,26 +1,62 @@
 @import "tailwindcss";
 
+/* 🔥 VARIABLES BASE */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #111827;
+
+  /* 🎯 COLORES ACCESIBLES (NO LAVADOS) */
+  --color-success-bg: #d1fae5;
+  --color-success-text: #065f46;
+
+  --color-warning-bg: #fef3c7;
+  --color-warning-text: #92400e;
+
+  --color-danger-bg: #fee2e2;
+  --color-danger-text: #7f1d1d;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
+/* 🌙 MODO OSCURO */
 @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
-    --foreground: #ededed;
+    --foreground: #f9fafb;
   }
 }
 
+/* 🔥 FIX GLOBAL MOBILE (CLAVE) */
 body {
   background: var(--background);
   color: var(--foreground);
+
   font-family: Arial, Helvetica, sans-serif;
+
+  /* 👇 MEJORA VISUAL EN iOS/ANDROID */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+
+  /* evita parpadeos y efectos raros en mobile */
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 🔥 TEXTO MÁS LEGIBLE */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+p, span, div {
+  font-weight: 500;
+}
+
+/* 🔥 BOTONES MÁS VISIBLES */
+button {
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+/* 🔥 MEJORA GENERAL DE CONTRASTE */
+* {
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
 }
