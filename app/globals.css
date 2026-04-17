@@ -5,7 +5,7 @@
   --background: #ffffff;
   --foreground: #111827;
 
-  /* 🎯 COLORES ACCESIBLES (NO LAVADOS) */
+  /* 🎯 COLORES ACCESIBLES (ALTO CONTRASTE) */
   --color-success-bg: #d1fae5;
   --color-success-text: #065f46;
 
@@ -24,39 +24,60 @@
   }
 }
 
-/* 🔥 FIX GLOBAL MOBILE (CLAVE) */
+/* 🔥 BASE GLOBAL */
 body {
   background: var(--background);
   color: var(--foreground);
 
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
 
-  /* 👇 MEJORA VISUAL EN iOS/ANDROID */
+  /* 🔥 FIX CRÍTICO IOS */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 
-  /* evita parpadeos y efectos raros en mobile */
   -webkit-tap-highlight-color: transparent;
 }
 
-/* 🔥 TEXTO MÁS LEGIBLE */
-h1, h2, h3, h4, h5, h6 {
-  font-weight: 700;
-  letter-spacing: 0.3px;
+/* 🔥 FIX GLOBAL CONTRA TEXTO AGUADO */
+* {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  /* ❌ eliminamos sombras que arruinan iOS */
+  text-shadow: none !important;
 }
 
-p, span, div {
+/* 🔥 TEXTO BASE FUERTE */
+body, p, span, div, label {
+  color: #111827;
   font-weight: 500;
 }
 
-/* 🔥 BOTONES MÁS VISIBLES */
+/* 🔥 TITULOS NÍTIDOS */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  color: #000000;
+}
+
+/* 🔥 BOTONES (MUY IMPORTANTE EN IOS) */
 button {
   font-weight: 700;
   letter-spacing: 0.3px;
+
+  /* evita blur en botones */
+  -webkit-font-smoothing: antialiased;
 }
 
-/* 🔥 MEJORA GENERAL DE CONTRASTE */
-* {
-  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+/* 🔥 INPUTS MÁS LEGIBLES */
+input, textarea {
+  font-weight: 500;
+  color: #111827;
+}
+
+/* 🔥 EVITAR TRANSPARENCIAS QUE ROMPEN TEXTO */
+[style*="opacity"] {
+  opacity: 1 !important;
 }

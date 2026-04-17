@@ -39,7 +39,9 @@ export default function PanelPage() {
         cargarMetricas();
       })
       .subscribe();
+
     const interval = setInterval(() => cargarMetricas(), 10000);
+
     return () => {
       supabase.removeChannel(channel);
       clearInterval(interval);
@@ -52,8 +54,10 @@ export default function PanelPage() {
       console.error("No se encontró empresa");
       return;
     }
+
     const res = await fetch(`/api/empresa?id=${empresaId}`);
     const json = await res.json();
+
     setEmpresa(json.data);
     setLoading(false);
   }
@@ -65,21 +69,26 @@ export default function PanelPage() {
   }
 
   if (loading) return (
-    <div style={{ padding: 40, backgroundColor: "#f5f7fa", minHeight: "100vh" }}>
-      <p style={{ color: "#333" }}>Cargando...</p>
+    <div style={{ padding: 40, backgroundColor: "#f3f4f6", minHeight: "100vh" }}>
+      <p style={{ color: "#111827", fontWeight: 500 }}>Cargando...</p>
     </div>
   );
 
   return (
     <div style={{
       padding: 30,
-      backgroundColor: "#f5f7fa",
+      backgroundColor: "#f3f4f6",
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
     }}>
-      <h1 style={{ fontWeight: "bold", fontSize: 28, marginBottom: 20, color: "#111" }}>
+      <h1 style={{
+        fontWeight: 700,
+        fontSize: 28,
+        marginBottom: 20,
+        color: "#000000",
+      }}>
         Panel Principal
       </h1>
 
@@ -100,20 +109,36 @@ export default function PanelPage() {
       <div style={{
         backgroundColor: "#ffffff",
         padding: 20,
-        borderRadius: 10,
+        borderRadius: 12,
         width: "100%",
         maxWidth: 400,
-        boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+        boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}>
-        <h2 style={{ color: "#111", fontWeight: "bold", marginBottom: 8 }}>
+        <h2 style={{
+          color: "#000000",
+          fontWeight: 700,
+          marginBottom: 8,
+        }}>
           {empresa?.nombre_comercial}
         </h2>
-        <p style={{ color: "#555", margin: 0 }}>
-          {empresa?.tipo_suscripcion === "mensual" ? "Plan mensual" : `Saldo: $${empresa?.saldo ?? 0}`}
+
+        <p style={{
+          color: "#111827",
+          margin: 0,
+          fontWeight: 500,
+        }}>
+          {empresa?.tipo_suscripcion === "mensual"
+            ? "Plan mensual"
+            : `Saldo: $${empresa?.saldo ?? 0}`}
         </p>
       </div>
 
-      <div style={{ marginTop: 40, fontSize: 12, color: "#999" }}>
+      <div style={{
+        marginTop: 40,
+        fontSize: 12,
+        color: "#6b7280",
+        fontWeight: 500,
+      }}>
         © PARKLISTO 2026 — Todos los derechos reservados
       </div>
     </div>
@@ -125,15 +150,26 @@ function Metric({ title, value }: any) {
     <div style={{
       backgroundColor: "#ffffff",
       padding: 20,
-      borderRadius: 10,
+      borderRadius: 12,
       textAlign: "center",
       minWidth: 140,
-      boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+      boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     }}>
-      <p style={{ fontWeight: "bold", fontSize: 14, color: "#555", margin: 0 }}>
+      <p style={{
+        fontWeight: 600,
+        fontSize: 14,
+        color: "#374151",
+        margin: 0,
+      }}>
         {title}
       </p>
-      <h2 style={{ fontWeight: "bold", fontSize: 28, margin: "8px 0 0 0", color: "#111" }}>
+
+      <h2 style={{
+        fontWeight: 700,
+        fontSize: 28,
+        margin: "8px 0 0 0",
+        color: "#000000",
+      }}>
         {value}
       </h2>
     </div>

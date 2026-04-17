@@ -22,9 +22,8 @@ type Pedido = {
 };
 
 export default function Dashboard() {
-  const [pedidos, setPedidos] = useState<Pedido[]>([]);
+  const [pedidos, setPedidos] = useState([] as Pedido[]);
 
-  // 🔊 audio global
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioReady, setAudioReady] = useState(false);
 
@@ -42,7 +41,6 @@ export default function Dashboard() {
       audioRef.current.currentTime = 0;
 
       setAudioReady(true);
-      console.log("AUDIO DESBLOQUEADO ✅");
     } catch (e) {
       console.log("ERROR AUDIO:", e);
     }
@@ -63,29 +61,31 @@ export default function Dashboard() {
   }
 
   return (
-    <div style={{ padding: 40 }}>
-      <h1>Panel del Carrito</h1>
+    <div style={{ padding: 30, backgroundColor: "#f3f4f6", minHeight: "100vh" }}>
+      <h1 style={{ fontWeight: 700, color: "#000", marginBottom: 20 }}>
+        🍳 Panel de Cocina
+      </h1>
 
-      {/* 🔊 ACTIVAR AUDIO */}
       {!audioReady && (
         <button
           onClick={unlockAudio}
           style={{
             marginBottom: 20,
             padding: "10px 18px",
-            backgroundColor: "#007bff",
-            color: "white",
+            backgroundColor: "#2563eb",
+            color: "#ffffff",
             border: "none",
             borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "bold",
+            fontWeight: 700,
           }}
         >
           Activar sonido 🔊
         </button>
       )}
 
-      {pedidos.length === 0 && <p>No hay pedidos</p>}
+      {pedidos.length === 0 && (
+        <p style={{ color: "#111827" }}>No hay pedidos</p>
+      )}
 
       {pedidos
         .sort((a, b) => {
@@ -105,15 +105,28 @@ export default function Dashboard() {
             <div
               key={pedido.id}
               style={{
-                border: "1px solid #ccc",
+                border: "1px solid #e5e7eb",
                 padding: 20,
                 marginBottom: 20,
-                borderRadius: 8,
+                borderRadius: 12,
+
+                /* 🔥 COLORES IOS SAFE */
                 backgroundColor:
                   pedido.estado === "Listo"
-                    ? "#e6ffed"
-                    : "#fff3cd",
-                animation: "fadeIn 0.3s ease",
+                    ? "#d1fae5"
+                    : "#fef3c7",
+
+                color:
+                  pedido.estado === "Listo"
+                    ? "#065f46"
+                    : "#92400e",
+
+                /* 🔥 IMPORTANTE */
+                fontWeight: 600,
+                boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+
+                /* ❌ quitamos animación */
+                animation: "none",
               }}
             >
               <h2>
@@ -121,28 +134,28 @@ export default function Dashboard() {
                   href={`/pedidos/${pedido.id}`}
                   style={{
                     textDecoration: "none",
-                    color: "black",
-		    fontSize: "30px",
-		    fontWeight: "bold",
+                    color: "#000",
+                    fontSize: "28px",
+                    fontWeight: 700,
                   }}
                 >
                   Pedido #{pedido.id}
                 </a>
               </h2>
 
-              <p>
+              <p style={{ color: "#111827", fontWeight: 500 }}>
                 <b>Cliente:</b> {pedido.nombre}
               </p>
 
-              <p>
-                <b>Estado:</b> {pedido.estado}
+              <p style={{ fontWeight: 700 }}>
+                Estado: {pedido.estado === "Listo" ? "✅ Listo" : "⏳ En preparación"}
               </p>
 
-              <p>
-                <b>Total:</b> ${pedido.total}
+              <p style={{ color: "#000", fontWeight: 700 }}>
+                Total: ${pedido.total}
               </p>
 
-              {/* 🔥 PRODUCTOS */}
+              {/* PRODUCTOS */}
               <div style={{ marginTop: 10 }}>
                 {pedido.productos?.map((item) => (
                   <div
@@ -150,42 +163,39 @@ export default function Dashboard() {
                     style={{
                       display: "flex",
                       justifyContent: "space-between",
-                      fontSize: "25px",
-			fontWeight: "bold",
+                      fontSize: "22px",
+                      fontWeight: 700,
+                      color: "#111827",
                     }}
                   >
                     <span>
                       {item.cantidad} x{" "}
-                      {item.productos?.nombre_producto ||
-                        "Producto"}
+                      {item.productos?.nombre_producto || "Producto"}
                     </span>
 
                     <span>
-                      $
-                      {item.cantidad *
-                        item.precio_unitario}
+                      ${item.cantidad * item.precio_unitario}
                     </span>
                   </div>
                 ))}
               </div>
 
-              {/* 🔥 QR */}
+              {/* QR */}
               <div style={{ marginTop: 15 }}>
                 <QRCodeCanvas value={url} size={120} />
-                <p style={{ fontSize: 12 }}>
+                <p style={{ fontSize: 12, color: "#111827" }}>
                   Escanear para ver pedido
                 </p>
               </div>
 
-              {/* 🔥 BOTÓN LISTO */}
+              {/* BOTÓN */}
               {pedido.estado !== "Listo" ? (
                 <button
                   onClick={async () => {
                     await fetch("/api/pedidos/estado", {
                       method: "POST",
                       headers: {
-                        "Content-Type":
-                          "application/json",
+                        "Content-Type": "application/json",
                       },
                       body: JSON.stringify({
                         pedido_id: pedido.id,
@@ -196,17 +206,13 @@ export default function Dashboard() {
                     cargarPedidos();
                   }}
                   style={{
-                    marginTop: "10px",
-                    padding: "10px 18px",
-                    background:
-                      "linear-gradient(135deg, #28a745, #218838)",
-                    color: "white",
+                    marginTop: "12px",
+                    padding: "12px 16px",
+                    backgroundColor: "#16a34a",
+                    color: "#ffffff",
                     border: "none",
-                    borderRadius: "8px",
-                    cursor: "pointer",
-                    fontWeight: "bold",
-                    boxShadow:
-                      "0 2px 6px rgba(0,0,0,0.2)",
+                    borderRadius: "10px",
+                    fontWeight: 700,
                   }}
                 >
                   ✅ Marcar como listo
@@ -217,10 +223,10 @@ export default function Dashboard() {
                     display: "inline-block",
                     marginTop: "10px",
                     padding: "8px 12px",
-                    backgroundColor: "#d4edda",
-                    color: "#155724",
-                    borderRadius: "6px",
-                    fontWeight: "bold",
+                    backgroundColor: "#d1fae5",
+                    color: "#065f46",
+                    borderRadius: "8px",
+                    fontWeight: 700,
                   }}
                 >
                   ✔ Ya listo
@@ -229,19 +235,6 @@ export default function Dashboard() {
             </div>
           );
         })}
-
-      <style jsx>{`
-        @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-      `}</style>
     </div>
   );
 }

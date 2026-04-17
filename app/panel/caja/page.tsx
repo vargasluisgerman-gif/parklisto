@@ -111,11 +111,13 @@ export default function CajaPage() {
         padding: 20,
         backgroundColor: "#f4f6f8",
         overflowY: "auto",
-        fontSize: 25,
-        fontWeight: "bold",
+        fontSize: 22,
+        fontWeight: 700,
         minWidth: 0,
+        color: "#111827",
       }}>
-        <h2>Productos</h2>
+        <h2 style={{ color: "#000", fontWeight: 700 }}>Productos</h2>
+
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
@@ -130,15 +132,16 @@ export default function CajaPage() {
                 padding: 20,
                 borderRadius: 12,
                 border: "none",
-                backgroundColor: "white",
-                boxShadow: "0 3px 8px rgba(0,0,0,0.1)",
+                backgroundColor: "#ffffff",
+                color: "#111827",
+                boxShadow: "0 3px 8px rgba(0,0,0,0.08)",
                 cursor: "pointer",
                 fontSize: 16,
-                fontWeight: "bold",
+                fontWeight: 600,
               }}
             >
               <div>{p.nombre_producto}</div>
-              <div>${p.precio}</div>
+              <div style={{ marginTop: 5 }}>${p.precio}</div>
             </button>
           ))}
         </div>
@@ -148,13 +151,14 @@ export default function CajaPage() {
       <div style={{
         flex: 1,
         padding: 20,
-        borderLeft: esMobil ? "none" : "2px solid #ddd",
-        borderTop: esMobil ? "2px solid #ddd" : "none",
+        borderLeft: esMobil ? "none" : "2px solid #e5e7eb",
+        borderTop: esMobil ? "2px solid #e5e7eb" : "none",
         display: "flex",
         flexDirection: "column",
         overflowY: "auto",
+        color: "#111827",
       }}>
-        <h2>Pedido</h2>
+        <h2 style={{ color: "#000", fontWeight: 700 }}>Pedido</h2>
 
         {/* CLIENTE */}
         <input
@@ -162,15 +166,20 @@ export default function CajaPage() {
           value={cliente}
           onChange={(e) => setCliente(e.target.value)}
           style={{
-            padding: 10,
+            padding: 12,
             marginBottom: 15,
-            borderRadius: 8,
-            border: "1px solid #ccc",
+            borderRadius: 10,
+            border: "1px solid #d1d5db",
+            fontWeight: 500,
+            color: "#111827",
+            backgroundColor: "#ffffff",
           }}
         />
 
         <div style={{ flex: 1, overflowY: "auto" }}>
-          {pedido.length === 0 && <p>Sin productos</p>}
+          {pedido.length === 0 && (
+            <p style={{ color: "#111827" }}>Sin productos</p>
+          )}
 
           {pedido.map((item) => (
             <div
@@ -182,35 +191,65 @@ export default function CajaPage() {
                 alignItems: "center",
               }}
             >
-              <span>{item.producto.nombre_producto}</span>
+              <span style={{ fontWeight: 600 }}>
+                {item.producto.nombre_producto}
+              </span>
+
               <div>
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, -1)}
-                  style={{ fontSize: 18 }}
-                >-</button>
-                <span style={{ margin: "0 10px", fontSize: 18 }}>
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    border: "none",
+                    backgroundColor: "#e5e7eb",
+                    fontWeight: 700,
+                    color: "#111827",
+                  }}
+                >
+                  -
+                </button>
+
+                <span style={{
+                  margin: "0 10px",
+                  fontSize: 18,
+                  fontWeight: 600,
+                }}>
                   {item.cantidad}
                 </span>
+
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, 1)}
-                  style={{ fontSize: 18 }}
-                >+</button>
+                  style={{
+                    padding: "6px 10px",
+                    borderRadius: 6,
+                    border: "none",
+                    backgroundColor: "#e5e7eb",
+                    fontWeight: 700,
+                    color: "#111827",
+                  }}
+                >
+                  +
+                </button>
               </div>
             </div>
           ))}
         </div>
 
-        <h2>Total: ${total}</h2>
+        <h2 style={{ fontWeight: 700, color: "#000" }}>
+          Total: ${total}
+        </h2>
 
         <button
           onClick={finalizarPedido}
           style={{
             padding: 18,
-            backgroundColor: "#28a745",
-            color: "white",
+            backgroundColor: "#16a34a",
+            color: "#ffffff",
             border: "none",
             borderRadius: 10,
             fontSize: 18,
+            fontWeight: 700,
             cursor: "pointer",
             marginTop: 10,
           }}
@@ -223,10 +262,11 @@ export default function CajaPage() {
           style={{
             padding: 12,
             marginTop: 10,
-            backgroundColor: "#dc3545",
-            color: "white",
+            backgroundColor: "#dc2626",
+            color: "#ffffff",
             border: "none",
             borderRadius: 10,
+            fontWeight: 700,
             cursor: "pointer",
           }}
         >
@@ -235,12 +275,18 @@ export default function CajaPage() {
 
         {pedidoId && (
           <div style={{ marginTop: 20, textAlign: "center" }}>
-            <h3>Pedido #{pedidoId}</h3>
+            <h3 style={{ color: "#000", fontWeight: 700 }}>
+              Pedido #{pedidoId}
+            </h3>
+
             <QRCodeCanvas
               value={`${window.location.origin}/pedidos/${pedidoId}`}
               size={180}
             />
-            <p>Mostrar QR al cliente</p>
+
+            <p style={{ color: "#111827", fontWeight: 500 }}>
+              Mostrar QR al cliente
+            </p>
           </div>
         )}
       </div>

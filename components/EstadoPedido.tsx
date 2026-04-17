@@ -16,10 +16,10 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   // 🔹 inicializar audio
   useEffect(() => {
     audioRef.current = new Audio("/alerta.mp3");
-    audioRef.current.loop = true; // 🔥 sonido continuo
+    audioRef.current.loop = true;
   }, []);
 
-  // 🔓 desbloquear audio (OBLIGATORIO en móviles)
+  // 🔓 desbloquear audio
   const unlockAudio = async () => {
     try {
       if (!audioRef.current) return;
@@ -53,7 +53,7 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
     fetchEstado();
   }, [pedidoId]);
 
-  // 🔥 REALTIME + SONIDO CONTINUO + VIBRACIÓN
+  // 🔥 REALTIME + SONIDO + VIBRACIÓN
   useEffect(() => {
     const channel = supabase
       .channel(`pedido-${pedidoId}`)
@@ -70,16 +70,13 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
 
           console.log("CAMBIO PEDIDO:", nuevoEstado);
 
-          // 🔥 ACTIVAR ALERTA SOLO UNA VEZ
           if (nuevoEstado === "Listo" && !yaSonóRef.current) {
             yaSonóRef.current = true;
 
-            // 🔊 SONIDO CONTINUO
             if (audioRef.current && audioUnlocked.current) {
               audioRef.current.play().catch(() => {});
             }
 
-            // 📳 VIBRACIÓN CONTINUA
             if (navigator.vibrate) {
               vibrationInterval.current = setInterval(() => {
                 navigator.vibrate([300, 100, 300]);
@@ -95,7 +92,6 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
     return () => {
       supabase.removeChannel(channel);
 
-      // 🛑 limpiar sonido y vibración
       if (audioRef.current) {
         audioRef.current.pause();
       }
@@ -108,18 +104,18 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
 
   return (
     <div style={{ textAlign: "center", marginTop: 20 }}>
-      {/* 🔊 BOTÓN OBLIGATORIO */}
+      {/* 🔊 BOTÓN */}
       {!audioUnlocked.current && (
         <button
           onClick={unlockAudio}
           style={{
             marginBottom: 10,
             padding: "10px 16px",
-            backgroundColor: "#007bff",
-            color: "white",
+            backgroundColor: "#2563eb",
+            color: "#ffffff",
             border: "none",
             borderRadius: 8,
-            fontWeight: "bold",
+            fontWeight: 700,
           }}
         >
           🔊 Activar sonido
@@ -128,16 +124,32 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
 
       <div
         style={{
-          padding: 16,
-          borderRadius: 12,
+          padding: 18,
+          borderRadius: 14,
+
+          /* 🔥 COLORES NUEVOS (NO LAVADOS) */
           backgroundColor:
-            estado === "Listo" ? "#28a745" : "#fff3cd",
-          color: estado === "Listo" ? "white" : "#856404",
-          fontWeight: "bold",
+            estado === "Listo" ? "#d1fae5" : "#fef3c7",
+
+          color:
+            estado === "Listo" ? "#065f46" : "#92400e",
+
+          /* 🔥 TIPOGRAFÍA IOS FIX */
+          fontWeight: 700,
           fontSize: "22px",
-          transition: "all 0.3s ease",
-          animation:
-            estado === "Listo" ? "parpadeo 1s infinite" : "none",
+          letterSpacing: "0.3px",
+          lineHeight: 1.4,
+
+          /* 🔥 IMPORTANTE: eliminar blur */
+          textShadow: "none",
+
+          /* 🔥 sombra en caja, no en texto */
+          boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
+
+          transition: "all 0.2s ease",
+
+          /* ❌ ELIMINAMOS ANIMACIÓN (causa blur en iOS) */
+          animation: "none",
         }}
       >
         {estado === "Listo"
@@ -145,20 +157,7 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
           : "⏳ En preparación"}
       </div>
 
-      {/* 🔥 ANIMACIÓN */}
-      <style jsx>{`
-        @keyframes parpadeo {
-          0% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.4;
-          }
-          100% {
-            opacity: 1;
-          }
-        }
-      `}</style>
+      {/* ❌ animación eliminada para evitar texto borroso */}
     </div>
   );
 }
