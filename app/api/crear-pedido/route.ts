@@ -80,7 +80,7 @@ const nuevoNumero =
         pedido_id: pedido.id,
         producto_id: p.producto_id,
         cantidad: p.cantidad,
-        precio_unitario: prod.precio,
+        precio_unitario: prod?.precio ?? 0,
       };
     });
 
