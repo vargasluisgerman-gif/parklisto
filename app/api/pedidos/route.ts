@@ -4,19 +4,18 @@ import { supabase } from "@/lib/supabase";
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
+    const carrito_id = Number(searchParams.get("carrito_id")) || null;
+    const empresa_id = Number(searchParams.get("empresa_id")) || null;
 
-    const carrito_id = Number(searchParams.get("carrito_id"));
-    const empresa_id = Number(searchParams.get("empresa_id"));
-
-    if (!carrito_id || !empresa_id) {
+    if (!empresa_id) {
       return NextResponse.json(
-        { error: "carrito_id y empresa_id son obligatorios" },
+        { error: "empresa_id es obligatorio" },
         { status: 400 }
       );
     }
 
-    // 🔥 Traer pedidos + productos (con producto_id)
-    const { data: pedidos, error } = await supabase
+    // 🔥 Traer pedidos + productos
+    let query = supabase
       .from("pedidos")
       .select(`
         id,
@@ -31,9 +30,14 @@ export async function GET(req: Request) {
           producto_id
         )
       `)
-      .eq("carrito_id", carrito_id)
       .eq("empresa_id", empresa_id)
       .order("created_at", { ascending: false });
+
+    if (carrito_id) {
+      query = query.eq("carrito_id", carrito_id);
+    }
+
+    const { data: pedidos, error } = await query;
 
     if (error) {
       return NextResponse.json(
@@ -42,13 +46,11 @@ export async function GET(req: Request) {
       );
     }
 
-    // 🔥 Resolver nombres de productos manualmente (100% confiable)
+    // 🔥 Resolver nombres de productos manualmente
     const pedidosConTotal = await Promise.all(
       pedidos.map(async (pedido: any) => {
         const items = pedido.pedido_productos || [];
-
         const productosIds = items.map((i: any) => i.producto_id);
-
         let productosMap: any = {};
 
         if (productosIds.length > 0) {

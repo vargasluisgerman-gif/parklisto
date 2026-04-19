@@ -51,15 +51,15 @@ export default function Dashboard() {
   }, []);
 
   async function cargarPedidos() {
-    const res = await fetch(
-      "/api/pedidos?carrito_id=5&empresa_id=1"
-    );
+  const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+  const empresaId = await getEmpresaUsuario();
 
-    const json = await res.json();
+  if (!empresaId) return;
 
-    setPedidos(json.data || []);
-  }
-
+  const res = await fetch(`/api/pedidos?empresa_id=${empresaId}`);
+  const json = await res.json();
+  setPedidos(json.data || []);
+}
   return (
     <div style={{ padding: 30, backgroundColor: "#f3f4f6", minHeight: "100vh" }}>
       <h1 style={{ fontWeight: 700, color: "#000", marginBottom: 20 }}>

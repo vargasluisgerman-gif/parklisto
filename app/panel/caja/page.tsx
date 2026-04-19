@@ -20,6 +20,8 @@ export default function CajaPage() {
   const [pedidoId, setPedidoId] = useState<number | null>(null);
   const [cliente, setCliente] = useState("");
   const [esMobil, setEsMobil] = useState(false);
+  const [fechaInicio, setFechaInicio] = useState("");
+  const [fechaFin, setFechaFin] = useState("");
 
   useEffect(() => {
     const check = () => setEsMobil(window.innerWidth < 640);
@@ -66,36 +68,80 @@ export default function CajaPage() {
   );
 
   async function finalizarPedido() {
-    if (pedido.length === 0) return alert("Agregar productos");
+  if (pedido.length === 0) return alert("Agregar productos");
 
-    const res = await fetch("/api/crear-pedido", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        carrito_id: 5,
-        nombre: cliente || "Cliente Mostrador",
-        productos: pedido.map((item) => ({
-          producto_id: item.producto.id,
-          cantidad: item.cantidad,
-        })),
-      }),
-    });
+  const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+  const empresaId = await getEmpresaUsuario();
 
-    const data = await res.json();
-    setPedidoId(data.pedido_id);
-    setPedido([]);
-    setCliente("");
+  if (!empresaId) return alert("No se encontró empresa");
 
-    setTimeout(() => {
-      setPedidoId(null);
-    }, 10000);
-  }
+  const res = await fetch("/api/crear-pedido", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      empresa_id: empresaId,
+      nombre: cliente || "Cliente Mostrador",
+      productos: pedido.map((item) => ({
+        producto_id: item.producto.id,
+        cantidad: item.cantidad,
+      })),
+    }),
+  });
+
+  const data = await res.json();
+  setPedidoId(data.pedido_id);
+  setPedido([]);
+  setCliente("");
+  setTimeout(() => setPedidoId(null), 10000);
+}
 
   function nuevoPedido() {
     setPedido([]);
     setPedidoId(null);
     setCliente("");
   }
+
+  async function descargarReporte() {
+  if (!fechaInicio || !fechaFin) {
+    alert("Seleccionar fechas");
+    return;
+  }
+
+  try {
+    // Obtener empresa del usuario actual
+    const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+    const empresaId = await getEmpresaUsuario();
+
+    if (!empresaId) {
+      alert("No se encontró empresa");
+      return;
+    }
+
+    const res = await fetch(
+      `/api/reporte?inicio=${fechaInicio}&fin=${fechaFin}&empresaId=${empresaId}`
+    );
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      console.error("Error reporte:", errorText);
+      alert("Error al generar el reporte");
+      return;
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "informe_ventas.pdf";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("ERROR DESCARGA:", error);
+    alert("Error descargando PDF");
+  }
+}
 
   return (
     <div style={{
@@ -116,8 +162,52 @@ export default function CajaPage() {
         minWidth: 0,
         color: "#111827",
       }}>
-        <h2 style={{ color: "#000", fontWeight: 700 }}>Productos</h2>
+        <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Productos</h2>
 
+        {/* REPORTE PDF */}
+        <div style={{ display: "flex", gap: 10, marginBottom: 15, flexWrap: "wrap" }}>
+          <input
+            type="date"
+            value={fechaInicio}
+            onChange={(e) => setFechaInicio(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              backgroundColor: "#ffffff",
+              color: "#111827",
+            }}
+          />
+          <input
+            type="date"
+            value={fechaFin}
+            onChange={(e) => setFechaFin(e.target.value)}
+            style={{
+              padding: 10,
+              borderRadius: 8,
+              border: "1px solid #d1d5db",
+              backgroundColor: "#ffffff",
+              color: "#111827",
+            }}
+          />
+          <button
+            onClick={descargarReporte}
+            style={{
+              padding: "10px 16px",
+              backgroundColor: "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 8,
+              fontWeight: 700,
+              cursor: "pointer",
+              fontSize: 14,
+            }}
+          >
+            📄 Descargar PDF
+          </button>
+        </div>
+
+        {/* GRID PRODUCTOS */}
         <div style={{
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
@@ -141,7 +231,7 @@ export default function CajaPage() {
               }}
             >
               <div>{p.nombre_producto}</div>
-              <div style={{ marginTop: 5 }}>${p.precio}</div>
+              <div style={{ marginTop: 5, color: "#16a34a" }}>${p.precio}</div>
             </button>
           ))}
         </div>
@@ -157,10 +247,10 @@ export default function CajaPage() {
         flexDirection: "column",
         overflowY: "auto",
         color: "#111827",
+        backgroundColor: "#ffffff",
       }}>
-        <h2 style={{ color: "#000", fontWeight: 700 }}>Pedido</h2>
+        <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Pedido</h2>
 
-        {/* CLIENTE */}
         <input
           placeholder="Nombre del cliente"
           value={cliente}
@@ -173,12 +263,13 @@ export default function CajaPage() {
             fontWeight: 500,
             color: "#111827",
             backgroundColor: "#ffffff",
+            fontSize: 15,
           }}
         />
 
         <div style={{ flex: 1, overflowY: "auto" }}>
           {pedido.length === 0 && (
-            <p style={{ color: "#111827" }}>Sin productos</p>
+            <p style={{ color: "#6b7280" }}>Sin productos</p>
           )}
 
           {pedido.map((item) => (
@@ -191,10 +282,9 @@ export default function CajaPage() {
                 alignItems: "center",
               }}
             >
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 600, color: "#111827" }}>
                 {item.producto.nombre_producto}
               </span>
-
               <div>
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, -1)}
@@ -205,19 +295,13 @@ export default function CajaPage() {
                     backgroundColor: "#e5e7eb",
                     fontWeight: 700,
                     color: "#111827",
+                    cursor: "pointer",
+                    fontSize: 16,
                   }}
-                >
-                  -
-                </button>
-
-                <span style={{
-                  margin: "0 10px",
-                  fontSize: 18,
-                  fontWeight: 600,
-                }}>
+                >-</button>
+                <span style={{ margin: "0 10px", fontSize: 18, fontWeight: 600, color: "#111827" }}>
                   {item.cantidad}
                 </span>
-
                 <button
                   onClick={() => cambiarCantidad(item.producto.id, 1)}
                   style={{
@@ -227,16 +311,16 @@ export default function CajaPage() {
                     backgroundColor: "#e5e7eb",
                     fontWeight: 700,
                     color: "#111827",
+                    cursor: "pointer",
+                    fontSize: 16,
                   }}
-                >
-                  +
-                </button>
+                >+</button>
               </div>
             </div>
           ))}
         </div>
 
-        <h2 style={{ fontWeight: 700, color: "#000" }}>
+        <h2 style={{ fontWeight: 700, color: "#000", marginBottom: 10 }}>
           Total: ${total}
         </h2>
 
@@ -268,6 +352,7 @@ export default function CajaPage() {
             borderRadius: 10,
             fontWeight: 700,
             cursor: "pointer",
+            fontSize: 15,
           }}
         >
           Cancelar / Nuevo pedido
@@ -275,18 +360,12 @@ export default function CajaPage() {
 
         {pedidoId && (
           <div style={{ marginTop: 20, textAlign: "center" }}>
-            <h3 style={{ color: "#000", fontWeight: 700 }}>
-              Pedido #{pedidoId}
-            </h3>
-
+            <h3 style={{ color: "#000", fontWeight: 700 }}>Pedido #{pedidoId}</h3>
             <QRCodeCanvas
               value={`${window.location.origin}/pedidos/${pedidoId}`}
               size={180}
             />
-
-            <p style={{ color: "#111827", fontWeight: 500 }}>
-              Mostrar QR al cliente
-            </p>
+            <p style={{ color: "#111827", fontWeight: 500 }}>Mostrar QR al cliente</p>
           </div>
         )}
       </div>
