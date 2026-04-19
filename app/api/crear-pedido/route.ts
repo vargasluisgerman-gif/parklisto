@@ -74,7 +74,7 @@ const nuevoNumero =
     let total = 0;
     const detalle = productos.map((p: any) => {
       const prod = productosDB!.find((x: any) => x.id === p.producto_id);
-      const subtotal = prod.precio * p.cantidad;
+      const subtotal = (prod?.precio ?? 0) * p.cantidad;
       total += subtotal;
       return {
         pedido_id: pedido.id,
