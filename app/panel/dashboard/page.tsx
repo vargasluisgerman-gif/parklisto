@@ -52,7 +52,7 @@ export default function Dashboard() {
   }
 
   useEffect(() => {
-    let canal: ReturnType<typeof supabase.channel> | null = null;
+    let canal: any = null;
 
     async function iniciar() {
       const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
