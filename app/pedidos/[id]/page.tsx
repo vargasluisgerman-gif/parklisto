@@ -152,7 +152,7 @@ export default async function PedidoPage({
 
       <div style={styles.linea} />
 
-      <p style={styles.pedidoNum}>Pedido N° {pedidoData.numero}</p>
+      <p style={styles.pedidoNum}>Pedido N° {pedidoId}</p>
       <p style={styles.cliente}>Cliente: {pedidoData.nombre}</p>
 
       <div style={styles.linea} />
