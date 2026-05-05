@@ -31,7 +31,7 @@ export async function GET(req: Request) {
 
     const { data: pedidos } = await supabaseAdmin
       .from("pedidos")
-      .select("numero, nombre, total, created_at, carrito_id, estado")
+      .select("id,numero, nombre, total, created_at, carrito_id, estado")
       .eq("empresa_id", empresaId)
       .gte("created_at", fechaInicio.toISOString())
       .lte("created_at", fechaFin.toISOString())
@@ -277,7 +277,7 @@ export async function GET(req: Request) {
         : carritoNombre;
 
       paginaActual.drawText(fecha, { x: cols.fecha, y: y + 6, size: 9, font, color: negro });
-      paginaActual.drawText(`${p.numero || "-"}`, { x: cols.pedido, y: y + 6, size: 9, font, color: negro });
+      paginaActual.drawText(`${p.id || "-"}`, { x: cols.pedido, y: y + 6, size: 9, font, color: negro });
       paginaActual.drawText(nombre, { x: cols.nombre, y: y + 6, size: 9, font, color: negro });
       paginaActual.drawText(carritoTrunc, { x: cols.carrito, y: y + 6, size: 9, font, color: negro });
 
