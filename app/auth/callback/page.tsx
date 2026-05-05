@@ -15,10 +15,21 @@ export default function AuthCallback() {
         const code = params.get("code");
 
         if (!code) {
-          console.error("No se encontró code en la URL");
-          router.replace("/login");
-          return;
-        }
+  // Puede que ya haya sesión activa — verificar
+  const { data } = await supabase.auth.getSession();
+  if (data.session) {
+    const { getRolUsuario } = await import("@/lib/getEmpresa");
+    const rol = await getRolUsuario();
+    if (rol === "empleado") {
+      router.replace("/panel/caja");
+    } else {
+      router.replace("/panel");
+    }
+  } else {
+    router.replace("/login");
+  }
+  return;
+}
 
         const { error } = await supabase.auth.exchangeCodeForSession(code);
 
