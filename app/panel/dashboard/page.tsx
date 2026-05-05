@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { QRCodeCanvas } from "qrcode.react";
+import { supabase } from "@/lib/supabase";
 
 type Producto = {
   id: number;
@@ -23,9 +24,9 @@ type Pedido = {
 
 export default function Dashboard() {
   const [pedidos, setPedidos] = useState([] as Pedido[]);
-
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [audioReady, setAudioReady] = useState(false);
+  const empresaIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     audioRef.current = new Audio("/alerta.mp3");
@@ -35,31 +36,68 @@ export default function Dashboard() {
   const unlockAudio = async () => {
     try {
       if (!audioRef.current) return;
-
       await audioRef.current.play();
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-
       setAudioReady(true);
     } catch (e) {
       console.log("ERROR AUDIO:", e);
     }
   };
 
+  async function cargarPedidos(empresaId: string) {
+    const res = await fetch(`/api/pedidos?empresa_id=${empresaId}`);
+    const json = await res.json();
+    setPedidos(json.data || []);
+  }
+
   useEffect(() => {
-    cargarPedidos();
-  }, []);
+    let canal: ReturnType<typeof supabase.channel> | null = null;
 
-  async function cargarPedidos() {
-  const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
-  const empresaId = await getEmpresaUsuario();
+    async function iniciar() {
+      const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+      const empresaId = await getEmpresaUsuario();
+      if (!empresaId) return;
 
-  if (!empresaId) return;
+      empresaIdRef.current = String(empresaId);
+      await cargarPedidos(String(empresaId));
 
-  const res = await fetch(`/api/pedidos?empresa_id=${empresaId}`);
-  const json = await res.json();
-  setPedidos(json.data || []);
-}
+      canal = supabase
+        canal = supabase
+  	.channel(`cocina-realtime-${Date.now()}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "pedidos",
+            filter: `empresa_id=eq.${empresaId}`,
+          },
+          async (payload) => {
+            console.log("[Realtime] Cambio detectado:", payload);
+            if (
+              payload.eventType === "INSERT" &&
+              audioReady &&
+              audioRef.current
+            ) {
+              audioRef.current.currentTime = 0;
+              audioRef.current.play().catch(() => {});
+            }
+            await cargarPedidos(String(empresaId));
+          }
+        )
+        .subscribe((status) => {
+          console.log("[Realtime] Estado:", status);
+        });
+    }
+
+    iniciar();
+
+    return () => {
+      if (canal) supabase.removeChannel(canal);
+    };
+  }, [audioReady]);
+
   return (
     <div style={{ padding: 30, backgroundColor: "#f3f4f6", minHeight: "100vh" }}>
       <h1 style={{ fontWeight: 700, color: "#000", marginBottom: 20 }}>
@@ -109,23 +147,12 @@ export default function Dashboard() {
                 padding: 20,
                 marginBottom: 20,
                 borderRadius: 12,
-
-                /* 🔥 COLORES IOS SAFE */
                 backgroundColor:
-                  pedido.estado === "Listo"
-                    ? "#d1fae5"
-                    : "#fef3c7",
-
+                  pedido.estado === "Listo" ? "#d1fae5" : "#fef3c7",
                 color:
-                  pedido.estado === "Listo"
-                    ? "#065f46"
-                    : "#92400e",
-
-                /* 🔥 IMPORTANTE */
+                  pedido.estado === "Listo" ? "#065f46" : "#92400e",
                 fontWeight: 600,
                 boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
-
-                /* ❌ quitamos animación */
                 animation: "none",
               }}
             >
@@ -148,14 +175,14 @@ export default function Dashboard() {
               </p>
 
               <p style={{ fontWeight: 700 }}>
-                Estado: {pedido.estado === "Listo" ? "✅ Listo" : "⏳ En preparación"}
+                Estado:{" "}
+                {pedido.estado === "Listo" ? "✅ Listo" : "⏳ En preparación"}
               </p>
 
               <p style={{ color: "#000", fontWeight: 700 }}>
                 Total: ${pedido.total}
               </p>
 
-              {/* PRODUCTOS */}
               <div style={{ marginTop: 10 }}>
                 {pedido.productos?.map((item) => (
                   <div
@@ -172,15 +199,11 @@ export default function Dashboard() {
                       {item.cantidad} x{" "}
                       {item.productos?.nombre_producto || "Producto"}
                     </span>
-
-                    <span>
-                      ${item.cantidad * item.precio_unitario}
-                    </span>
+                    <span>${item.cantidad * item.precio_unitario}</span>
                   </div>
                 ))}
               </div>
 
-              {/* QR */}
               <div style={{ marginTop: 15 }}>
                 <QRCodeCanvas value={url} size={120} />
                 <p style={{ fontSize: 12, color: "#111827" }}>
@@ -188,23 +211,26 @@ export default function Dashboard() {
                 </p>
               </div>
 
-              {/* BOTÓN */}
               {pedido.estado !== "Listo" ? (
                 <button
                   onClick={async () => {
-                    await fetch("/api/pedidos/estado", {
-                      method: "POST",
-                      headers: {
-                        "Content-Type": "application/json",
-                      },
-                      body: JSON.stringify({
-                        pedido_id: pedido.id,
-                        estado: "Listo",
-                      }),
-                    });
+  // Actualizar UI inmediatamente
+  setPedidos((prev) =>
+    prev.map((p) =>
+      p.id === pedido.id ? { ...p, estado: "Listo" } : p
+    )
+  );
 
-                    cargarPedidos();
-                  }}
+  // Luego persistir en DB
+  await fetch("/api/pedidos/estado", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      pedido_id: pedido.id,
+      estado: "Listo",
+    }),
+  });
+}}
                   style={{
                     marginTop: "12px",
                     padding: "12px 16px",

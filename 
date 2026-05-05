@@ -1,0 +1,54 @@
+* [33m589185a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m git push  is reverts commit b0783888a1b38c291996bbb2458fa99dd5e1f5cd.
+* [33mb078388[m agergando codigo de tienda nube
+* [33m449f764[m feat:corregir reporte
+* [33m796e527[m feat:nueva correcion en reporte
+* [33m3b7e7b0[m feat:nueva correccion
+* [33m3ed74ff[m feat:correccion
+* [33m93b200b[m subimos los cambios
+* [33m62b749c[m feat:cambio de formato completo
+* [33m36897f1[m feat: combio en el globalcss
+* [33me1318d7[m feat:nuevo arreglo formato
+* [33m22c20b1[m  corregir caja
+* [33m48c4821[m  cambio de formatos para celular
+* [33mb74bddc[m feat: nueva prueba
+* [33m11a32ec[m feat; cambiar formato métricas
+* [33m656322e[m feat: moviendo rutas
+* [33m70df8f9[m feat: actualizar panel
+* [33m87eb73e[m feat: volver a estado original
+* [33m5d4c202[m feat:corregir caja
+* [33m2d22224[m feat:cambio panel
+* [33m617445f[m feat:corregir 1
+* [33m712ae96[m feat:corregir pedidos
+* [33m7de35a9[m feat: agregar dashboard
+* [33m2f19a37[m feat:nuevo diseño
+* [33ma97ae18[m feat:logout
+* [33m33180d2[m fix:nuevo cambio desde chatgpt
+* [33mc5edaf2[m fix:autoredirect
+* [33m979af75[m fix: auth callback
+* [33ma7d04f2[m fix:excluir el callback
+* [33m987ede3[m fix:mejorar manejo dew sesion
+* [33m35b60c4[m fix: eliminar route
+* [33ma452d97[m feat: manejar callback OAuth en cliente
+* [33m826e6a3[m feat:agregar callback de autenticación OAuth
+* [33m4887828[m feat:login con google OAuth
+* [33mcff7cdf[m feat: agregar login y middleware de autenticación
+* [33m5468536[m fix: nueva home parklisto
+* [33m731c58c[m fix: revert next config
+* [33mcfddcc0[m fix: set turbopack root
+* [33m9eebf89[m fix: set turbopack root directory
+* [33m2028063[m fix: nueva correccion de rutas
+* [33mc37409c[m fix:corregir las rutas de importación de modulos
+* [33me75d143[m fix: corregir rutas de importacion lib/supabase y components
+* [33m91b6b23[m fix:refactor directory structure for Vercel deployment
+* [33mea359d5[m fix:forzar redeploy vercel
+* [33m3fe1c3c[m fix:corregir import qrcode.react
+*   [33m81b5ff6[m fix:resolver conflicto de casing withLicencia
+[32m|[m[33m\[m  
+[32m|[m * [33m63bd2f7[m Delete app/lib/withlicencia.ts
+[32m|[m * [33mec6112a[m Add files via upload
+* [33m|[m [33me35045b[m remove typo file
+[33m|[m[33m/[m  
+* [33m701e667[m fix:corregir nombre archivo licencia
+* [33mbebe24f[m fix:corregir nombre withlicencia
+* [33me85eb42[m fix: corregir import withlicencia
+* [33m527c652[m first commit

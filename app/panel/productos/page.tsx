@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Producto = {
   id: number;
@@ -9,58 +10,115 @@ type Producto = {
   activo: boolean;
 };
 
+type Carrito = {
+  id: number;
+  nombre_comercial: string;
+};
+
 export default function ProductosPage() {
   const [nombre, setNombre] = useState("");
   const [precio, setPrecio] = useState("");
   const [productos, setProductos] = useState<Producto[]>([]);
+  const [carritos, setCarritos] = useState<Carrito[]>([]);
+  const [carritoSeleccionado, setCarritoSeleccionado] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    cargarProductos();
+    cargarCarritos();
   }, []);
 
-  async function cargarProductos() {
-    const res = await fetch("/api/productos");
+  useEffect(() => {
+    if (carritoSeleccionado) {
+      cargarProductos(carritoSeleccionado);
+    }
+  }, [carritoSeleccionado]);
+
+  async function cargarCarritos() {
+    const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+    const empresaId = await getEmpresaUsuario();
+    if (!empresaId) return;
+
+    const { data } = await supabase
+      .from("carritos")
+      .select("id, nombre_comercial")
+      .eq("empresa_id", empresaId)
+      .eq("activo", true);
+
+    if (data && data.length > 0) {
+      setCarritos(data);
+      setCarritoSeleccionado(data[0].id); // selecciona el primero por defecto
+    }
+    setLoading(false);
+  }
+
+  async function cargarProductos(carrito_id: number) {
+    const res = await fetch(`/api/productos?carrito_id=${carrito_id}`);
     const json = await res.json();
     setProductos(json.data || []);
   }
 
   async function crearProducto() {
-    // 🔒 validación básica
     if (!nombre || !precio) {
       alert("Completar nombre y precio");
       return;
     }
 
+    if (!carritoSeleccionado) {
+      alert("Seleccioná un carrito primero");
+      return;
+    }
+
     const res = await fetch("/api/productos", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         nombre_producto: nombre,
         precio: Number(precio),
-        carrito_id: 5,
-        empresa_id: 1,
+        carrito_id: carritoSeleccionado,
       }),
     });
 
     const nuevo = await res.json();
 
-    // ✅ FIX IMPORTANTE
     if (nuevo?.data?.length > 0) {
       setProductos((prev) => [nuevo.data[0], ...prev]);
     } else {
-      // fallback seguro
-      await cargarProductos();
+      await cargarProductos(carritoSeleccionado);
     }
 
     setNombre("");
     setPrecio("");
   }
 
+  if (loading) {
+    return (
+      <div style={{ padding: 40 }}>
+        <p>Cargando...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ padding: 40 }}>
       <h1>Gestión de productos</h1>
+
+      {/* SELECTOR DE CARRITO */}
+      {carritos.length > 1 && (
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontWeight: 600, marginRight: 10 }}>Carrito:</label>
+          <select
+            value={carritoSeleccionado ?? ""}
+            onChange={(e) => setCarritoSeleccionado(Number(e.target.value))}
+            style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc" }}
+          >
+            {carritos.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.nombre_comercial}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* FORM */}
       <div style={{ marginBottom: 20 }}>
@@ -68,24 +126,37 @@ export default function ProductosPage() {
           placeholder="Nombre producto"
           value={nombre}
           onChange={(e) => setNombre(e.target.value)}
-          style={{ display: "block", marginBottom: 10 }}
+          style={{ display: "block", marginBottom: 10, padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", width: 250 }}
         />
-
         <input
           placeholder="Precio"
           type="number"
           value={precio}
           onChange={(e) => setPrecio(e.target.value)}
-          style={{ display: "block", marginBottom: 10 }}
+          style={{ display: "block", marginBottom: 10, padding: "8px 12px", borderRadius: 6, border: "1px solid #ccc", width: 250 }}
         />
-
-        <button onClick={crearProducto}>
+        <button
+          onClick={crearProducto}
+          style={{
+            padding: "8px 20px",
+            backgroundColor: "#16a34a",
+            color: "white",
+            border: "none",
+            borderRadius: 6,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
           Crear producto
         </button>
       </div>
 
       {/* LISTADO */}
-      <h2>Productos</h2>
+      <h2>Productos {carritoSeleccionado ? `— ${carritos.find(c => c.id === carritoSeleccionado)?.nombre_comercial}` : ""}</h2>
+
+      {productos.length === 0 && (
+        <p style={{ color: "#6b7280" }}>No hay productos cargados aún.</p>
+      )}
 
       {productos.map((p) => (
         <div
@@ -98,67 +169,35 @@ export default function ProductosPage() {
             backgroundColor: "#f9f9f9",
           }}
         >
-          <strong style={{ fontSize: 16 }}>
-            {p.nombre_producto}
-          </strong>
+          <strong style={{ fontSize: 16 }}>{p.nombre_producto}</strong>
 
-          {/* 💰 PRECIO EDITABLE */}
           <input
             type="number"
             value={p.precio}
             onChange={async (e) => {
               const nuevoPrecio = Number(e.target.value);
-
               await fetch("/api/productos", {
                 method: "PUT",
-                headers: {
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  id: p.id,
-                  precio: nuevoPrecio,
-                  activo: p.activo,
-                }),
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id: p.id, precio: nuevoPrecio, activo: p.activo }),
               });
-
               setProductos((prev) =>
-                prev.map((prod) =>
-                  prod.id === p.id
-                    ? { ...prod, precio: nuevoPrecio }
-                    : prod
-                )
+                prev.map((prod) => prod.id === p.id ? { ...prod, precio: nuevoPrecio } : prod)
               );
             }}
-            style={{
-              display: "block",
-              marginTop: 10,
-              padding: 6,
-              width: 120,
-            }}
+            style={{ display: "block", marginTop: 10, padding: 6, width: 120 }}
           />
 
-          {/* 🔥 BOTONES */}
           <div style={{ marginTop: 10 }}>
             <button
               onClick={async () => {
                 await fetch("/api/productos", {
                   method: "PUT",
-                  headers: {
-                    "Content-Type": "application/json",
-                  },
-                  body: JSON.stringify({
-                    id: p.id,
-                    precio: p.precio,
-                    activo: !p.activo,
-                  }),
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ id: p.id, precio: p.precio, activo: !p.activo }),
                 });
-
                 setProductos((prev) =>
-                  prev.map((prod) =>
-                    prod.id === p.id
-                      ? { ...prod, activo: !prod.activo }
-                      : prod
-                  )
+                  prev.map((prod) => prod.id === p.id ? { ...prod, activo: !prod.activo } : prod)
                 );
               }}
               style={{
@@ -170,12 +209,6 @@ export default function ProductosPage() {
                 cursor: "pointer",
                 marginRight: 10,
               }}
-              onMouseOver={(e) =>
-                (e.currentTarget.style.opacity = "0.8")
-              }
-              onMouseOut={(e) =>
-                (e.currentTarget.style.opacity = "1")
-              }
             >
               {p.activo ? "Desactivar" : "Activar"}
             </button>
@@ -184,14 +217,8 @@ export default function ProductosPage() {
               onClick={async () => {
                 const confirmar = confirm("¿Eliminar producto?");
                 if (!confirmar) return;
-
-                await fetch(`/api/productos?id=${p.id}`, {
-                  method: "DELETE",
-                });
-
-                setProductos((prev) =>
-                  prev.filter((prod) => prod.id !== p.id)
-                );
+                await fetch(`/api/productos?id=${p.id}`, { method: "DELETE" });
+                setProductos((prev) => prev.filter((prod) => prod.id !== p.id));
               }}
               style={{
                 padding: "6px 12px",
@@ -201,21 +228,13 @@ export default function ProductosPage() {
                 borderRadius: 6,
                 cursor: "pointer",
               }}
-              onMouseOver={(e) =>
-                (e.currentTarget.style.opacity = "0.8")
-              }
-              onMouseOut={(e) =>
-                (e.currentTarget.style.opacity = "1")
-              }
             >
               Eliminar
             </button>
           </div>
 
-          {/* ESTADO */}
           <p style={{ marginTop: 10 }}>
-            Estado:{" "}
-            {p.activo ? "🟢 Activo" : "🔴 Inactivo"}
+            Estado: {p.activo ? "🟢 Activo" : "🔴 Inactivo"}
           </p>
         </div>
       ))}

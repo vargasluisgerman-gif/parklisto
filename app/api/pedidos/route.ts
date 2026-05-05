@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
+
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function GET(req: Request) {
   try {
@@ -14,8 +19,7 @@ export async function GET(req: Request) {
       );
     }
 
-    // 🔥 Traer pedidos + productos
-    let query = supabase
+    let query = supabaseAdmin
       .from("pedidos")
       .select(`
         id,
@@ -40,21 +44,18 @@ export async function GET(req: Request) {
     const { data: pedidos, error } = await query;
 
     if (error) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    // 🔥 Resolver nombres de productos manualmente
+    // Resolver nombres de productos
     const pedidosConTotal = await Promise.all(
-      pedidos.map(async (pedido: any) => {
+      (pedidos || []).map(async (pedido: any) => {
         const items = pedido.pedido_productos || [];
         const productosIds = items.map((i: any) => i.producto_id);
         let productosMap: any = {};
 
         if (productosIds.length > 0) {
-          const { data: productosData } = await supabase
+          const { data: productosData } = await supabaseAdmin
             .from("productos")
             .select("id, nombre_producto")
             .in("id", productosIds);
@@ -70,8 +71,7 @@ export async function GET(req: Request) {
         }));
 
         const total = itemsConNombre.reduce(
-          (acc: number, item: any) =>
-            acc + item.cantidad * item.precio_unitario,
+          (acc: number, item: any) => acc + item.cantidad * item.precio_unitario,
           0
         );
 
@@ -90,9 +90,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ data: pedidosConTotal });
 
   } catch (err: any) {
-    return NextResponse.json(
-      { error: err.message },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }

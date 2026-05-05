@@ -5,38 +5,33 @@ import { supabase } from "../lib/supabase";
 
 export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   const [estado, setEstado] = useState("Esperando");
+  const [audioDesbloqueado, setAudioDesbloqueado] = useState(false);
 
-  // 🔊 control de sonido
   const yaSonóRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioUnlocked = useRef(false);
-
   const vibrationInterval = useRef<any>(null);
 
-  // 🔹 inicializar audio
+  // Inicializar audio
   useEffect(() => {
     audioRef.current = new Audio("/alerta.mp3");
     audioRef.current.loop = true;
   }, []);
 
-  // 🔓 desbloquear audio
+  // Desbloquear audio — necesario en mobile antes de reproducir
   const unlockAudio = async () => {
     try {
       if (!audioRef.current) return;
-
       await audioRef.current.play();
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
-
-      audioUnlocked.current = true;
-
-      console.log("🔊 AUDIO DESBLOQUEADO");
+      setAudioDesbloqueado(true);
+      console.log("Audio desbloqueado");
     } catch (e) {
       console.log("ERROR AUDIO:", e);
     }
   };
 
-  // 🔹 estado inicial
+  // Estado inicial del pedido
   useEffect(() => {
     async function fetchEstado() {
       const { data } = await supabase
@@ -47,16 +42,20 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
 
       if (data) {
         setEstado(data.estado);
+
+        // Si ya estaba listo cuando el cliente abre la página
+        if (data.estado === "Listo") {
+          yaSonóRef.current = true;
+        }
       }
     }
-
     fetchEstado();
   }, [pedidoId]);
 
-  // 🔥 REALTIME + SONIDO + VIBRACIÓN
+  // Realtime — escucha cambios de estado
   useEffect(() => {
     const channel = supabase
-      .channel(`pedido-${pedidoId}`)
+      .channel(`pedido-estado-${pedidoId}`)
       .on(
         "postgres_changes",
         {
@@ -67,16 +66,18 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
         },
         (payload) => {
           const nuevoEstado = payload.new.estado;
-
-          console.log("CAMBIO PEDIDO:", nuevoEstado);
+          console.log("Cambio de estado:", nuevoEstado);
 
           if (nuevoEstado === "Listo" && !yaSonóRef.current) {
             yaSonóRef.current = true;
 
-            if (audioRef.current && audioUnlocked.current) {
+            // Sonido
+            if (audioRef.current && audioDesbloqueado) {
+              audioRef.current.currentTime = 0;
               audioRef.current.play().catch(() => {});
             }
 
+            // Vibración en mobile
             if (navigator.vibrate) {
               vibrationInterval.current = setInterval(() => {
                 navigator.vibrate([300, 100, 300]);
@@ -87,77 +88,98 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
           setEstado(nuevoEstado);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("[Realtime] Estado pedido:", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);
-
       if (audioRef.current) {
         audioRef.current.pause();
       }
-
       if (vibrationInterval.current) {
         clearInterval(vibrationInterval.current);
       }
     };
-  }, [pedidoId]);
+  }, [pedidoId, audioDesbloqueado]);
 
   return (
     <div style={{ textAlign: "center", marginTop: 20 }}>
-      {/* 🔊 BOTÓN */}
-      {!audioUnlocked.current && (
+
+      {/* Botón de activar sonido — desaparece cuando se activa */}
+      {!audioDesbloqueado && (
         <button
           onClick={unlockAudio}
           style={{
-            marginBottom: 10,
-            padding: "10px 16px",
+            marginBottom: 16,
+            padding: "10px 20px",
             backgroundColor: "#2563eb",
             color: "#ffffff",
             border: "none",
             borderRadius: 8,
             fontWeight: 700,
+            fontSize: 15,
+            cursor: "pointer",
           }}
         >
-          🔊 Activar sonido
+          Activar sonido
         </button>
+      )}
+
+      {audioDesbloqueado && (
+        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
+          Sonido activado — te avisamos cuando tu pedido este listo
+        </p>
       )}
 
       <div
         style={{
           padding: 18,
           borderRadius: 14,
-
-          /* 🔥 COLORES NUEVOS (NO LAVADOS) */
-          backgroundColor:
-            estado === "Listo" ? "#d1fae5" : "#fef3c7",
-
-          color:
-            estado === "Listo" ? "#065f46" : "#92400e",
-
-          /* 🔥 TIPOGRAFÍA IOS FIX */
+          backgroundColor: estado === "Listo" ? "#d1fae5" : "#fef3c7",
+          color: estado === "Listo" ? "#065f46" : "#92400e",
           fontWeight: 700,
           fontSize: "22px",
           letterSpacing: "0.3px",
           lineHeight: 1.4,
-
-          /* 🔥 IMPORTANTE: eliminar blur */
           textShadow: "none",
-
-          /* 🔥 sombra en caja, no en texto */
           boxShadow: "0 4px 10px rgba(0,0,0,0.08)",
-
-          transition: "all 0.2s ease",
-
-          /* ❌ ELIMINAMOS ANIMACIÓN (causa blur en iOS) */
+          transition: "all 0.3s ease",
           animation: "none",
         }}
       >
         {estado === "Listo"
-          ? "🔥 PEDIDO LISTO PARA RETIRAR 🔥"
-          : "⏳ En preparación"}
+          ? "PEDIDO LISTO PARA RETIRAR"
+          : "En preparacion..."}
       </div>
 
-      {/* ❌ animación eliminada para evitar texto borroso */}
+      {/* Botón para detener el sonido cuando el pedido está listo */}
+      {estado === "Listo" && audioDesbloqueado && (
+        <button
+          onClick={() => {
+            if (audioRef.current) {
+              audioRef.current.pause();
+              audioRef.current.currentTime = 0;
+            }
+            if (vibrationInterval.current) {
+              clearInterval(vibrationInterval.current);
+            }
+          }}
+          style={{
+            marginTop: 14,
+            padding: "8px 16px",
+            backgroundColor: "#dc2626",
+            color: "#ffffff",
+            border: "none",
+            borderRadius: 8,
+            fontWeight: 700,
+            fontSize: 13,
+            cursor: "pointer",
+          }}
+        >
+          Detener sonido
+        </button>
+      )}
     </div>
   );
 }

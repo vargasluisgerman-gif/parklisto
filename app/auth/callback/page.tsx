@@ -10,10 +10,17 @@ export default function AuthCallback() {
   useEffect(() => {
     async function handleAuth() {
       try {
-        // 🔥 CLAVE: procesar el código de Google
-        const { error } = await supabase.auth.exchangeCodeForSession(
-          window.location.href
-        );
+        // Bug 2 fix: extraer solo el code de la URL
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get("code");
+
+        if (!code) {
+          console.error("No se encontró code en la URL");
+          router.replace("/login");
+          return;
+        }
+
+        const { error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (error) {
           console.error("Error auth:", error.message);
@@ -21,14 +28,33 @@ export default function AuthCallback() {
           return;
         }
 
-        // 🔥 obtener sesión ya procesada
-        const { data } = await supabase.auth.getSession();
+        // Bug 3 fix: esperar sesión confirmada antes de verificar perfil
+        const { data: sessionData } = await supabase.auth.getSession();
+        const user = sessionData.session?.user;
 
-        if (data.session) {
-          router.replace("/panel");
-        } else {
+        if (!user) {
           router.replace("/login");
+          return;
         }
+
+        // Verificar perfil
+        const { data: perfil, error: errPerfil } = await supabase
+          .from("perfiles")
+          .select("empresa_id, rol")
+          .eq("id", user.id)
+          .single();
+
+        console.log("Perfil encontrado:", perfil, "Error:", errPerfil);
+
+        if (!perfil || !perfil.empresa_id) {
+          // Usuario nuevo → onboarding
+          router.replace("/onboarding");
+        } else if (perfil.rol === "empleado") {
+          router.replace("/panel/caja");
+        } else {
+          router.replace("/panel");
+        }
+
       } catch (err) {
         console.error("Error general:", err);
         router.replace("/login");
@@ -39,10 +65,14 @@ export default function AuthCallback() {
   }, [router]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-100">
-      <p className="text-zinc-500 text-sm">
-        Iniciando sesión...
-      </p>
+    <div style={{
+      display: "flex",
+      minHeight: "100vh",
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: "#f3f4f6"
+    }}>
+      <p style={{ color: "#6b7280", fontSize: 14 }}>Iniciando sesión...</p>
     </div>
   );
 }

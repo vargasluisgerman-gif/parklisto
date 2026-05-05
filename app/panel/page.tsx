@@ -1,4 +1,5 @@
 "use client";
+
 import { getEmpresaUsuario } from "@/lib/getEmpresa";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -17,8 +18,8 @@ export default function PanelPage() {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
   const [metricas, setMetricas] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [empresaId, setEmpresaId] = useState<number | null>(null);
   const router = useRouter();
-  const empresaId = empresa?.id ?? null;
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -28,19 +29,31 @@ export default function PanelPage() {
 
   useEffect(() => {
     cargarEmpresa();
-    cargarMetricas();
   }, []);
 
   useEffect(() => {
     if (!empresaId) return;
+
+    // Cargar métricas iniciales
+    cargarMetricas(empresaId);
+
+    // Realtime para actualizar métricas cuando hay pedidos nuevos
     const channel = supabase
-      .channel("panel")
-      .on("postgres_changes", { event: "*", schema: "public", table: "pedidos" }, () => {
-        cargarMetricas();
-      })
+      .channel(`panel-${empresaId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "pedidos",
+          filter: `empresa_id=eq.${empresaId}`,
+        },
+        () => cargarMetricas(empresaId)
+      )
       .subscribe();
 
-    const interval = setInterval(() => cargarMetricas(), 10000);
+    // Actualización cada 30 segundos como respaldo
+    const interval = setInterval(() => cargarMetricas(empresaId), 30000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -49,21 +62,24 @@ export default function PanelPage() {
   }, [empresaId]);
 
   async function cargarEmpresa() {
-    const empresaId = await getEmpresaUsuario();
-    if (!empresaId) {
-      console.error("No se encontró empresa");
+    const empId = await getEmpresaUsuario();
+
+    if (!empId) {
+      console.error("No se encontró empresa — redirigiendo a onboarding");
+      router.replace("/onboarding");
       return;
     }
 
-    const res = await fetch(`/api/empresa?id=${empresaId}`);
-    const json = await res.json();
+    setEmpresaId(Number(empId));
 
+    const res = await fetch(`/api/empresa?id=${empId}`);
+    const json = await res.json();
     setEmpresa(json.data);
     setLoading(false);
   }
 
-  async function cargarMetricas() {
-    const res = await fetch("/api/metricas");
+  async function cargarMetricas(empId: number) {
+    const res = await fetch(`/api/metricas?empresa_id=${empId}`);
     const json = await res.json();
     setMetricas(json.data);
   }
@@ -83,12 +99,7 @@ export default function PanelPage() {
       flexDirection: "column",
       alignItems: "center",
     }}>
-      <h1 style={{
-        fontWeight: 700,
-        fontSize: 28,
-        marginBottom: 20,
-        color: "#000000",
-      }}>
+      <h1 style={{ fontWeight: 700, fontSize: 28, marginBottom: 20, color: "#000000" }}>
         Panel Principal
       </h1>
 
@@ -100,9 +111,10 @@ export default function PanelPage() {
         justifyContent: "center",
         flexWrap: "wrap",
       }}>
-        <Metric title="Ventas" value={`$${metricas?.totalVentas || 0}`} />
-        <Metric title="Pedidos" value={metricas?.cantidadPedidos || 0} />
-        <Metric title="Ticket" value={`$${metricas?.ticketPromedio || 0}`} />
+        <Metric title="Ventas hoy" value={`$${metricas?.totalVentas || 0}`} />
+        <Metric title="Pedidos hoy" value={metricas?.cantidadPedidos || 0} />
+        <Metric title="Ticket promedio" value={`$${metricas?.ticketPromedio || 0}`} />
+        <Metric title="En preparación" value={metricas?.enPreparacion || 0} />
       </div>
 
       {/* EMPRESA */}
@@ -114,31 +126,17 @@ export default function PanelPage() {
         maxWidth: 400,
         boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
       }}>
-        <h2 style={{
-          color: "#000000",
-          fontWeight: 700,
-          marginBottom: 8,
-        }}>
+        <h2 style={{ color: "#000000", fontWeight: 700, marginBottom: 8 }}>
           {empresa?.nombre_comercial}
         </h2>
-
-        <p style={{
-          color: "#111827",
-          margin: 0,
-          fontWeight: 500,
-        }}>
+        <p style={{ color: "#111827", margin: 0, fontWeight: 500 }}>
           {empresa?.tipo_suscripcion === "mensual"
             ? "Plan mensual"
             : `Saldo: $${empresa?.saldo ?? 0}`}
         </p>
       </div>
 
-      <div style={{
-        marginTop: 40,
-        fontSize: 12,
-        color: "#6b7280",
-        fontWeight: 500,
-      }}>
+      <div style={{ marginTop: 40, fontSize: 12, color: "#6b7280", fontWeight: 500 }}>
         © PARKLISTO 2026 — Todos los derechos reservados
       </div>
     </div>
@@ -155,21 +153,10 @@ function Metric({ title, value }: any) {
       minWidth: 140,
       boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
     }}>
-      <p style={{
-        fontWeight: 600,
-        fontSize: 14,
-        color: "#374151",
-        margin: 0,
-      }}>
+      <p style={{ fontWeight: 600, fontSize: 14, color: "#374151", margin: 0 }}>
         {title}
       </p>
-
-      <h2 style={{
-        fontWeight: 700,
-        fontSize: 28,
-        margin: "8px 0 0 0",
-        color: "#000000",
-      }}>
+      <h2 style={{ fontWeight: 700, fontSize: 28, margin: "8px 0 0 0", color: "#000000" }}>
         {value}
       </h2>
     </div>
