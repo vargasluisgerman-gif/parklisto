@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
@@ -24,7 +24,7 @@ type Plan = {
   descripcion: string;
 };
 
-export default function SuscripcionPage() {
+function SuscripcionContent() {
   const searchParams = useSearchParams();
   const estado = searchParams.get("estado");
   const planParam = searchParams.get("plan");
@@ -59,12 +59,10 @@ export default function SuscripcionPage() {
     const { data: userData } = await supabase.auth.getUser();
     setEmail(userData.user?.email || "");
 
-    // Cargar planes desde DB
     const planesRes = await fetch("/api/admin/planes");
     const planesJson = await planesRes.json();
     setPlanes((planesJson.data || []).filter((p: Plan) => p.activo));
 
-    // Cargar suscripción activa
     const suscRes = await fetch(`/api/suscripcion?empresa_id=${empId}`);
     const suscJson = await suscRes.json();
     setSuscripcion(suscJson.data || null);
@@ -88,7 +86,6 @@ export default function SuscripcionPage() {
       return;
     }
 
-    // Usar sandbox_init_point en desarrollo, init_point en producción
     const url = process.env.NODE_ENV === "development"
       ? json.sandbox_init_point || json.init_point
       : json.init_point;
@@ -124,7 +121,6 @@ export default function SuscripcionPage() {
         </div>
       )}
 
-      {/* SUSCRIPCIÓN ACTIVA */}
       {suscripcion && suscripcion.estado === "activa" && (
         <div style={{
           backgroundColor: "#fff", borderRadius: 12, padding: 20,
@@ -169,7 +165,6 @@ export default function SuscripcionPage() {
         </div>
       )}
 
-      {/* PLANES */}
       <h2 style={{ fontWeight: 600, fontSize: 16, color: "#000", marginBottom: 16 }}>
         {suscripcion?.estado === "activa" ? "Cambiar o renovar plan" : "Elegi tu plan"}
       </h2>
@@ -223,5 +218,13 @@ export default function SuscripcionPage() {
         Al superar el limite de pedidos el carrito se pausara hasta renovar.
       </p>
     </div>
+  );
+}
+
+export default function SuscripcionPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: 40 }}>Cargando...</div>}>
+      <SuscripcionContent />
+    </Suspense>
   );
 }
