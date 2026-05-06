@@ -87,6 +87,9 @@ export default function PanelLayout({ children }: { children: React.ReactNode })
             <div onClick={() => router.push("/panel/empleados")} style={navClass("/panel/empleados")}>
               Empleados
             </div>
+	    <div onClick={() => router.push("/panel/suscripcion")} style={navClass("/panel/suscripcion")}>
+  Suscripción
+</div>
           </>
         )}
 

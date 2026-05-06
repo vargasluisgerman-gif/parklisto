@@ -11,13 +11,46 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { empresa_id: empresaId, nombre, productos, carrito_id } = body;
 
-    console.log("BODY RECIBIDO:", { empresaId, nombre, productos, carrito_id });
-
     if (!empresaId || !productos || productos.length === 0) {
       return NextResponse.json({ error: "Datos incompletos" }, { status: 400 });
     }
 
-    // 1. Obtener carrito — usa el carrito_id si viene, sino busca el primero de la empresa
+    // ── VERIFICAR SUSCRIPCIÓN ACTIVA ──────────────────────────────
+    const { data: suscripcion } = await supabaseAdmin
+      .from("suscripciones")
+      .select("id, pedidos_incluidos, pedidos_usados, estado, fecha_vencimiento")
+      .eq("empresa_id", empresaId)
+      .eq("estado", "activa")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (!suscripcion) {
+      return NextResponse.json({
+        error: "Sin suscripcion activa. Contrata un plan para continuar.",
+        codigo: "SIN_SUSCRIPCION",
+      }, { status: 403 });
+    }
+
+    // Verificar si vencio
+    if (suscripcion.fecha_vencimiento && new Date(suscripcion.fecha_vencimiento) < new Date()) {
+      return NextResponse.json({
+        error: "Tu suscripcion vencio. Renova tu plan para continuar.",
+        codigo: "SUSCRIPCION_VENCIDA",
+      }, { status: 403 });
+    }
+
+    // Verificar limite de pedidos
+    if (suscripcion.pedidos_usados >= suscripcion.pedidos_incluidos) {
+      return NextResponse.json({
+        error: `Alcanzaste el limite de ${suscripcion.pedidos_incluidos} pedidos de tu plan. Renova o cambia de plan para continuar.`,
+        codigo: "LIMITE_ALCANZADO",
+        pedidos_incluidos: suscripcion.pedidos_incluidos,
+        pedidos_usados: suscripcion.pedidos_usados,
+      }, { status: 403 });
+    }
+
+    // ── OBTENER CARRITO ───────────────────────────────────────────
     let carritoId = carrito_id;
 
     if (!carritoId) {
@@ -29,16 +62,13 @@ export async function POST(req: Request) {
         .limit(1)
         .single();
 
-      console.log("CARRITO:", carrito, "ERROR:", errorCarrito);
-
       if (errorCarrito || !carrito) {
-        return NextResponse.json({ error: "No se encontró carrito" }, { status: 500 });
+        return NextResponse.json({ error: "No se encontro carrito" }, { status: 500 });
       }
-
       carritoId = carrito.id;
     }
 
-    // 2. Número de pedido
+    // ── NÚMERO DE PEDIDO ──────────────────────────────────────────
     const { data: ultimoPedido } = await supabaseAdmin
       .from("pedidos")
       .select("numero")
@@ -46,14 +76,12 @@ export async function POST(req: Request) {
       .order("numero", { ascending: false })
       .limit(1);
 
-    console.log("ULTIMO PEDIDO:", ultimoPedido);
-
     const nuevoNumero =
       ultimoPedido && ultimoPedido.length > 0
         ? ultimoPedido[0].numero + 1
         : 1;
 
-    // 3. Crear pedido
+    // ── CREAR PEDIDO ──────────────────────────────────────────────
     const { data: pedidoData, error: errorPedido } = await supabaseAdmin
       .from("pedidos")
       .insert([{
@@ -67,28 +95,24 @@ export async function POST(req: Request) {
       }])
       .select();
 
-    console.log("PEDIDO CREADO:", pedidoData, "ERROR:", errorPedido);
-
     if (errorPedido || !pedidoData || pedidoData.length === 0) {
       return NextResponse.json({ error: errorPedido?.message || "Error creando pedido" }, { status: 500 });
     }
 
     const pedido = pedidoData[0];
 
-    // 4. Traer precios de productos
+    // ── TRAER PRECIOS ─────────────────────────────────────────────
     const ids = productos.map((p: any) => p.producto_id);
     const { data: productosDB, error: errorProductos } = await supabaseAdmin
       .from("productos")
       .select("id, precio")
       .in("id", ids);
 
-    console.log("PRODUCTOS DB:", productosDB, "ERROR:", errorProductos);
-
     if (errorProductos || !productosDB) {
       return NextResponse.json({ error: "Error trayendo productos" }, { status: 500 });
     }
 
-    // 5. Calcular total y armar detalle
+    // ── CALCULAR TOTAL ────────────────────────────────────────────
     let total = 0;
     const detalle = productos.map((p: any) => {
       const prod = productosDB.find((x: any) => x.id === p.producto_id);
@@ -102,26 +126,34 @@ export async function POST(req: Request) {
       };
     });
 
-    // 6. Insertar detalle
+    // ── INSERTAR DETALLE ──────────────────────────────────────────
     const { error: errorDetalle } = await supabaseAdmin
       .from("pedido_productos")
       .insert(detalle);
-
-    console.log("ERROR DETALLE:", errorDetalle);
 
     if (errorDetalle) {
       return NextResponse.json({ error: errorDetalle.message }, { status: 500 });
     }
 
-    // 7. Actualizar total en pedido
-    const { error: errorTotal } = await supabaseAdmin
+    // ── ACTUALIZAR TOTAL ──────────────────────────────────────────
+    await supabaseAdmin
       .from("pedidos")
       .update({ total })
       .eq("id", pedido.id);
 
-    console.log("ERROR TOTAL:", errorTotal);
+    // ── DESCONTAR 1 CRÉDITO DE LA SUSCRIPCIÓN ────────────────────
+    await supabaseAdmin
+      .from("suscripciones")
+      .update({ pedidos_usados: suscripcion.pedidos_usados + 1 })
+      .eq("id", suscripcion.id);
 
-    return NextResponse.json({ pedido_id: pedido.id, total });
+    console.log(`[Pedido] Creado #${nuevoNumero} — Creditos: ${suscripcion.pedidos_usados + 1}/${suscripcion.pedidos_incluidos}`);
+
+    return NextResponse.json({
+      pedido_id: pedido.id,
+      total,
+      creditos_restantes: suscripcion.pedidos_incluidos - (suscripcion.pedidos_usados + 1),
+    });
 
   } catch (err: any) {
     console.log("ERROR GENERAL:", err.message);
