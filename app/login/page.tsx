@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -13,16 +14,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   async function loginConGoogle() {
-  await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
-      queryParams: {
-        prompt: "select_account", // siempre pide elegir cuenta
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        queryParams: {
+          prompt: "select_account",
+        },
       },
-    },
-  });
-}
+    });
+  }
 
   async function loginConEmail() {
     if (!email || !password) {
@@ -44,7 +45,6 @@ export default function LoginPage() {
       return;
     }
 
-    // Verificar rol y redirigir
     const { data: perfil } = await supabase
       .from("perfiles")
       .select("rol")
@@ -78,9 +78,19 @@ export default function LoginPage() {
         boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
         textAlign: "center",
       }}>
-        <h1 style={{ fontWeight: 700, fontSize: 26, color: "#000", marginBottom: 4 }}>
-          PARKLISTO
-        </h1>
+
+        {/* LOGO */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+          <Image
+            src="/logo.png"
+            alt="Parklisto"
+            width={200}
+            height={100}
+            style={{ objectFit: "contain" }}
+            priority
+          />
+        </div>
+
         <p style={{ color: "#6b7280", fontSize: 13, marginBottom: 28 }}>
           Sistema de pedidos para food trucks
         </p>
