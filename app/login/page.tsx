@@ -14,16 +14,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
 
   async function loginConGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-        queryParams: {
-          prompt: "select_account",
-        },
+  await supabase.auth.signInWithOAuth({
+    provider: "google",
+    options: {
+      redirectTo: `${window.location.origin}/auth/callback`,
+      queryParams: {
+        prompt: "select_account", // siempre pide elegir cuenta
       },
-    });
-  }
+    },
+  });
+}
 
   async function loginConEmail() {
     if (!email || !password) {
@@ -45,6 +45,7 @@ export default function LoginPage() {
       return;
     }
 
+    // Verificar rol y redirigir
     const { data: perfil } = await supabase
       .from("perfiles")
       .select("rol")
@@ -78,9 +79,8 @@ export default function LoginPage() {
         boxShadow: "0 4px 20px rgba(0,0,0,0.08)",
         textAlign: "center",
       }}>
-
-        {/* LOGO */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 16 }}>
+        {/* LOGO — reemplaza el h1 anterior */}
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 4 }}>
           <Image
             src="/logo.png"
             alt="Parklisto"
