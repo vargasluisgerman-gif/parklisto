@@ -42,10 +42,13 @@ export default function CajaPage() {
   // Cargar empresa y carritos al iniciar
   useEffect(() => {
     async function iniciar() {
-      const { getEmpresaUsuario } = await import("@/lib/getEmpresa");
+      const { getEmpresaUsuario, getCarritoEmpleado } = await import("@/lib/getEmpresa");
       const empId = await getEmpresaUsuario();
       if (!empId) return;
       setEmpresaId(String(empId));
+
+      // Verificar si el empleado tiene carrito asignado
+      const carritoAsignado = await getCarritoEmpleado();
 
       const { data } = await supabase
         .from("carritos")
@@ -54,8 +57,16 @@ export default function CajaPage() {
         .eq("activo", true);
 
       if (data && data.length > 0) {
-        setCarritos(data);
-        setCarritoSeleccionado(data[0].id);
+        if (carritoAsignado) {
+          // Empleado con carrito específico — solo muestra ese
+          const soloSuCarrito = data.filter((c: any) => c.id === carritoAsignado);
+          setCarritos(soloSuCarrito);
+          setCarritoSeleccionado(carritoAsignado);
+        } else {
+          // Dueño o empleado sin restricción — muestra todos
+          setCarritos(data);
+          setCarritoSeleccionado(data[0].id);
+        }
       }
     }
     iniciar();

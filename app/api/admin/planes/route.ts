@@ -29,7 +29,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, nombre, precio, pedidos, activo, destacado, descripcion } = body;
+    const { id, nombre, precio, pedidos, activo, destacado, descripcion, max_carritos, max_empleados } = body;
 
     if (!id || !nombre || !precio || !pedidos) {
       return NextResponse.json({ error: "Faltan datos obligatorios" }, { status: 400 });
@@ -45,6 +45,8 @@ export async function POST(req: NextRequest) {
         activo: activo ?? true,
         destacado: destacado ?? false,
         descripcion: descripcion || "",
+        max_carritos: max_carritos ?? 1,
+        max_empleados: max_empleados ?? 2,
         created_at: new Date().toISOString(),
       });
 
@@ -63,7 +65,7 @@ export async function POST(req: NextRequest) {
 export async function PUT(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, nombre, precio, pedidos, activo, destacado, descripcion } = body;
+    const { id, nombre, precio, pedidos, activo, destacado, descripcion, max_carritos, max_empleados } = body;
 
     if (!id) {
       return NextResponse.json({ error: "ID requerido" }, { status: 400 });
@@ -71,7 +73,7 @@ export async function PUT(req: NextRequest) {
 
     const { error } = await supabaseAdmin
       .from("planes")
-      .update({ nombre, precio, pedidos, activo, destacado, descripcion })
+      .update({ nombre, precio, pedidos, activo, destacado, descripcion, max_carritos, max_empleados })
       .eq("id", id);
 
     if (error) {

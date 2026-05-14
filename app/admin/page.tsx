@@ -10,6 +10,8 @@ type Plan = {
   activo: boolean;
   destacado: boolean;
   descripcion: string;
+  max_carritos: number;
+  max_empleados: number;
 };
 
 type Stats = {
@@ -48,7 +50,11 @@ export default function AdminPage() {
   // Planes
   const [planes, setPlanes] = useState<Plan[]>([]);
   const [editando, setEditando] = useState<Plan | null>(null);
-  const [nuevoplan, setNuevoPlan] = useState<Partial<Plan>>({ id: "", nombre: "", precio: 0, pedidos: 0, activo: true, destacado: false, descripcion: "" });
+  const [nuevoplan, setNuevoPlan] = useState<Partial<Plan>>({
+    id: "", nombre: "", precio: 0, pedidos: 0,
+    activo: true, destacado: false, descripcion: "",
+    max_carritos: 1, max_empleados: 2,
+  });
   const [mostrarFormNuevo, setMostrarFormNuevo] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mensaje, setMensaje] = useState("");
@@ -115,7 +121,7 @@ export default function AdminPage() {
     if (res.ok) {
       setMensaje(`Plan "${nuevoplan.nombre}" creado`);
       setMostrarFormNuevo(false);
-      setNuevoPlan({ id: "", nombre: "", precio: 0, pedidos: 0, activo: true, destacado: false, descripcion: "" });
+      setNuevoPlan({ id: "", nombre: "", precio: 0, pedidos: 0, activo: true, destacado: false, descripcion: "", max_carritos: 1, max_empleados: 2 });
       cargarPlanes();
     } else {
       setMensaje("Error: " + json.error);
@@ -193,7 +199,6 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {/* MÉTRICAS RESUMEN */}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 12, marginBottom: 24 }}>
               {[
                 { label: "Empresas totales", value: stats?.resumen.totalEmpresas || 0, color: "#fff" },
@@ -210,7 +215,6 @@ export default function AdminPage() {
               ))}
             </div>
 
-            {/* RENTABILIDAD POR PLAN */}
             <h2 style={{ fontWeight: 600, fontSize: 15, margin: "0 0 12px" }}>Rentabilidad por plan</h2>
             <div style={{ backgroundColor: "#1a1a1a", borderRadius: 12, overflow: "hidden", marginBottom: 24, border: "1px solid #333" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -240,7 +244,6 @@ export default function AdminPage() {
               </table>
             </div>
 
-            {/* PRÓXIMAS A VENCER */}
             {stats?.proximasVencer && stats.proximasVencer.length > 0 && (
               <div>
                 <h2 style={{ fontWeight: 600, fontSize: 15, margin: "0 0 12px", color: "#fbbf24" }}>
@@ -350,6 +353,8 @@ export default function AdminPage() {
                     { label: "Nombre *", key: "nombre", placeholder: "ej: Premium", type: "text" },
                     { label: "Precio ARS *", key: "precio", placeholder: "50000", type: "number" },
                     { label: "Pedidos incluidos *", key: "pedidos", placeholder: "400", type: "number" },
+                    { label: "Max carritos", key: "max_carritos", placeholder: "3", type: "number" },
+                    { label: "Max empleados", key: "max_empleados", placeholder: "5", type: "number" },
                   ].map((f) => (
                     <div key={f.key}>
                       <label style={{ fontSize: 12, color: "#9ca3af" }}>{f.label}</label>
@@ -390,6 +395,8 @@ export default function AdminPage() {
                         { label: "Precio ARS", key: "precio", type: "number" },
                         { label: "Pedidos incluidos", key: "pedidos", type: "number" },
                         { label: "Descripcion", key: "descripcion", type: "text" },
+                        { label: "Max carritos", key: "max_carritos", type: "number" },
+                        { label: "Max empleados", key: "max_empleados", type: "number" },
                       ].map((f) => (
                         <div key={f.key}>
                           <label style={{ fontSize: 12, color: "#9ca3af" }}>{f.label}</label>
@@ -423,7 +430,12 @@ export default function AdminPage() {
                         {plan.destacado && <span style={{ fontSize: 10, padding: "2px 8px", backgroundColor: "#1e3a5f", color: "#60a5fa", borderRadius: 99, fontWeight: 600 }}>Destacado</span>}
                         {!plan.activo && <span style={{ fontSize: 10, padding: "2px 8px", backgroundColor: "#450a0a", color: "#fca5a5", borderRadius: 99, fontWeight: 600 }}>Inactivo</span>}
                       </div>
-                      <p style={{ color: "#9ca3af", fontSize: 13, margin: "0 0 2px" }}>${Number(plan.precio).toLocaleString("es-AR")} / mes · {plan.pedidos} pedidos</p>
+                      <p style={{ color: "#9ca3af", fontSize: 13, margin: "0 0 2px" }}>
+                        ${Number(plan.precio).toLocaleString("es-AR")} / mes · {plan.pedidos} pedidos
+                      </p>
+                      <p style={{ color: "#6b7280", fontSize: 12, margin: "0 0 2px" }}>
+                        Max carritos: {plan.max_carritos >= 999 ? "Ilimitados" : plan.max_carritos} · Max empleados: {plan.max_empleados >= 999 ? "Ilimitados" : plan.max_empleados}
+                      </p>
                       <p style={{ color: "#6b7280", fontSize: 12, margin: 0 }}>{plan.descripcion}</p>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>

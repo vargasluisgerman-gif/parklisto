@@ -7,13 +7,22 @@ type Empleado = {
   id: string;
   email: string;
   rol: string;
+  carrito_id: number | null;
+  nombre_carrito: string;
   created_at: string;
+};
+
+type Carrito = {
+  id: number;
+  nombre_comercial: string;
 };
 
 export default function EmpleadosPage() {
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [carritos, setCarritos] = useState<Carrito[]>([]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [carritoId, setCarritoId] = useState<number | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [exito, setExito] = useState("");
@@ -28,6 +37,15 @@ export default function EmpleadosPage() {
     const empId = await getEmpresaUsuario();
     if (!empId) return;
     setEmpresaId(Number(empId));
+
+    // Cargar carritos de la empresa
+    const { data: carritosData } = await supabase
+      .from("carritos")
+      .select("id, nombre_comercial")
+      .eq("empresa_id", empId)
+      .eq("activo", true);
+
+    setCarritos(carritosData || []);
     cargarEmpleados(Number(empId));
   }
 
@@ -42,12 +60,10 @@ export default function EmpleadosPage() {
       setError("Completá email y contraseña");
       return;
     }
-
     if (password.length < 6) {
       setError("La contraseña debe tener al menos 6 caracteres");
       return;
     }
-
     if (!empresaId) return;
 
     setLoading(true);
@@ -57,7 +73,12 @@ export default function EmpleadosPage() {
     const res = await fetch("/api/empleados", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password, empresa_id: empresaId }),
+      body: JSON.stringify({
+        email,
+        password,
+        empresa_id: empresaId,
+        carrito_id: carritoId, // null = todos los carritos
+      }),
     });
 
     const json = await res.json();
@@ -68,6 +89,7 @@ export default function EmpleadosPage() {
       setExito(`Empleado ${email} creado correctamente`);
       setEmail("");
       setPassword("");
+      setCarritoId(null);
       cargarEmpleados(empresaId);
     }
 
@@ -98,7 +120,6 @@ export default function EmpleadosPage() {
     });
 
     const json = await res.json();
-
     if (res.ok) {
       alert(`Contraseña actualizada para ${emailEmp}`);
     } else {
@@ -112,7 +133,7 @@ export default function EmpleadosPage() {
         Gestión de empleados
       </h1>
       <p style={{ color: "#6b7280", fontSize: 14, marginBottom: 24 }}>
-        Los empleados solo pueden acceder a Caja y Cocina.
+        Los empleados solo pueden acceder a Caja y Cocina de su carrito asignado.
       </p>
 
       {/* FORMULARIO */}
@@ -149,9 +170,28 @@ export default function EmpleadosPage() {
           style={{
             display: "block", width: "100%", padding: "10px 14px",
             borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14,
-            marginTop: 6, marginBottom: 16, boxSizing: "border-box" as any,
+            marginTop: 6, marginBottom: 14, boxSizing: "border-box" as any,
           }}
         />
+
+        <label style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+          Carrito asignado
+        </label>
+        <select
+          value={carritoId ?? ""}
+          onChange={(e) => setCarritoId(e.target.value ? Number(e.target.value) : null)}
+          style={{
+            display: "block", width: "100%", padding: "10px 14px",
+            borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 14,
+            marginTop: 6, marginBottom: 16, boxSizing: "border-box" as any,
+            backgroundColor: "#fff",
+          }}
+        >
+          <option value="">Todos los carritos</option>
+          {carritos.map((c) => (
+            <option key={c.id} value={c.id}>{c.nombre_comercial}</option>
+          ))}
+        </select>
 
         {error && (
           <p style={{ color: "#dc2626", fontSize: 13, marginBottom: 12 }}>{error}</p>
@@ -203,21 +243,16 @@ export default function EmpleadosPage() {
               {emp.email}
             </p>
             <p style={{ color: "#6b7280", margin: "3px 0 0", fontSize: 12 }}>
-              Acceso: Caja y Cocina
+              Carrito: {emp.nombre_carrito}
             </p>
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={() => cambiarClave(emp.id, emp.email)}
               style={{
-                padding: "6px 12px",
-                backgroundColor: "#2563eb",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 12,
-                cursor: "pointer",
+                padding: "6px 12px", backgroundColor: "#2563eb",
+                color: "#fff", border: "none", borderRadius: 6,
+                fontWeight: 600, fontSize: 12, cursor: "pointer",
               }}
             >
               Cambiar clave
@@ -225,14 +260,9 @@ export default function EmpleadosPage() {
             <button
               onClick={() => eliminarEmpleado(emp.id, emp.email)}
               style={{
-                padding: "6px 12px",
-                backgroundColor: "#dc2626",
-                color: "#fff",
-                border: "none",
-                borderRadius: 6,
-                fontWeight: 600,
-                fontSize: 12,
-                cursor: "pointer",
+                padding: "6px 12px", backgroundColor: "#dc2626",
+                color: "#fff", border: "none", borderRadius: 6,
+                fontWeight: 600, fontSize: 12, cursor: "pointer",
               }}
             >
               Eliminar
