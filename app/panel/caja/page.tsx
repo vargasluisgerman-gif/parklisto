@@ -44,6 +44,7 @@ export default function CajaPage() {
     return () => window.removeEventListener("resize", check);
   }, []);
 
+  // Cargar empresa y carritos al iniciar
   useEffect(() => {
     async function iniciar() {
       const { getEmpresaUsuario, getCarritoEmpleado } = await import("@/lib/getEmpresa");
@@ -73,6 +74,7 @@ export default function CajaPage() {
     iniciar();
   }, []);
 
+  // Cargar productos cuando cambia el carrito seleccionado
   useEffect(() => {
     if (!carritoSeleccionado) return;
     fetch(`/api/productos?carrito_id=${carritoSeleccionado}`)
@@ -140,8 +142,7 @@ export default function CajaPage() {
     setPedidoId(data.pedido_id);
     setPedido([]);
     setCliente("");
-    // QR visible por 20 segundos
-    setTimeout(() => setPedidoId(null), 20000);
+    setTimeout(() => setPedidoId(null), 10000);
   }
 
   function nuevoPedido() {
@@ -160,6 +161,7 @@ export default function CajaPage() {
       return;
     }
 
+    // Armar timestamps completos con hora
     const inicioISO = `${fechaInicio}T${horaInicio}:00`;
     const finISO = `${fechaFin}T${horaFin}:59`;
 
@@ -197,221 +199,193 @@ export default function CajaPage() {
   };
 
   return (
-    <>
-      {/* ESTILOS DE IMPRESIÓN TÉRMICA */}
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          #area-comanda, #area-comanda * { visibility: visible; }
-          #area-comanda {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 80mm;
-            padding: 6mm;
-            text-align: center;
-            background: white;
-          }
-          #area-comanda button { display: none; }
-        }
-      `}</style>
+    <div style={{
+      display: "flex",
+      height: esMobil ? "auto" : "100vh",
+      minHeight: "100vh",
+      flexDirection: esMobil ? "column" : "row",
+    }}>
 
+      {/* PRODUCTOS */}
       <div style={{
-        display: "flex",
-        height: esMobil ? "auto" : "100vh",
-        minHeight: "100vh",
-        flexDirection: esMobil ? "column" : "row",
+        flex: 2,
+        padding: 20,
+        backgroundColor: "#f4f6f8",
+        overflowY: "auto",
+        minWidth: 0,
+        color: "#111827",
       }}>
+        <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Productos</h2>
 
-        {/* PRODUCTOS */}
-        <div style={{
-          flex: 2,
-          padding: 20,
-          backgroundColor: "#f4f6f8",
-          overflowY: "auto",
-          minWidth: 0,
-          color: "#111827",
-        }}>
-          <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Productos</h2>
-
-          {/* SELECTOR DE CARRITO */}
-          {carritos.length > 1 && (
-            <div style={{ marginBottom: 15 }}>
-              <label style={{ fontWeight: 600, marginRight: 10 }}>Carrito:</label>
-              <select
-                value={carritoSeleccionado ?? ""}
-                onChange={(e) => setCarritoSeleccionado(Number(e.target.value))}
-                style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc" }}
-              >
-                {carritos.map((c) => (
-                  <option key={c.id} value={c.id}>{c.nombre_comercial}</option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {/* REPORTE PDF con fecha y hora */}
+        {/* SELECTOR DE CARRITO */}
+        {carritos.length > 1 && (
           <div style={{ marginBottom: 15 }}>
-            <p style={{ fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 8 }}>
-              Reporte de turno
-            </p>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <div>
-                <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Desde</p>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <input type="date" value={fechaInicio} onChange={(e) => setFechaInicio(e.target.value)} style={inputStyle} />
-                  <input type="time" value={horaInicio} onChange={(e) => setHoraInicio(e.target.value)} style={{ ...inputStyle, width: 100 }} />
-                </div>
-              </div>
-              <div>
-                <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Hasta</p>
-                <div style={{ display: "flex", gap: 4 }}>
-                  <input type="date" value={fechaFin} onChange={(e) => setFechaFin(e.target.value)} style={inputStyle} />
-                  <input type="time" value={horaFin} onChange={(e) => setHoraFin(e.target.value)} style={{ ...inputStyle, width: 100 }} />
-                </div>
-              </div>
-              <div style={{ alignSelf: "flex-end" }}>
-                <button
-                  onClick={descargarReporte}
-                  style={{ padding: "10px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
-                >
-                  Descargar PDF
-                </button>
+            <label style={{ fontWeight: 600, marginRight: 10 }}>Carrito:</label>
+            <select
+              value={carritoSeleccionado ?? ""}
+              onChange={(e) => setCarritoSeleccionado(Number(e.target.value))}
+              style={{ padding: "6px 12px", borderRadius: 6, border: "1px solid #ccc" }}
+            >
+              {carritos.map((c) => (
+                <option key={c.id} value={c.id}>{c.nombre_comercial}</option>
+              ))}
+            </select>
+          </div>
+        )}
+
+        {/* REPORTE PDF con fecha y hora */}
+        <div style={{ marginBottom: 15 }}>
+          <p style={{ fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+            Reporte de turno
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Desde</p>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={horaInicio}
+                  onChange={(e) => setHoraInicio(e.target.value)}
+                  style={{ ...inputStyle, width: 100 }}
+                />
               </div>
             </div>
-          </div>
-
-          {/* GRID PRODUCTOS */}
-          <div style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
-            gap: 15,
-          }}>
-            {productos.length === 0 && (
-              <p style={{ color: "#6b7280" }}>No hay productos activos en este carrito.</p>
-            )}
-            {productos.map((p) => (
+            <div>
+              <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Hasta</p>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={horaFin}
+                  onChange={(e) => setHoraFin(e.target.value)}
+                  style={{ ...inputStyle, width: 100 }}
+                />
+              </div>
+            </div>
+            <div style={{ alignSelf: "flex-end" }}>
               <button
-                key={p.id}
-                onClick={() => agregarProducto(p)}
-                style={{
-                  padding: 20,
-                  borderRadius: 12,
-                  border: "none",
-                  backgroundColor: "#ffffff",
-                  color: "#111827",
-                  boxShadow: "0 3px 8px rgba(0,0,0,0.08)",
-                  cursor: "pointer",
-                  fontSize: 16,
-                  fontWeight: 600,
-                }}
+                onClick={descargarReporte}
+                style={{ padding: "10px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
               >
-                <div>{p.nombre_producto}</div>
-                <div style={{ marginTop: 5, color: "#16a34a" }}>${p.precio}</div>
+                Descargar PDF
               </button>
-            ))}
+            </div>
           </div>
         </div>
 
-        {/* PEDIDO */}
+        {/* GRID PRODUCTOS */}
         <div style={{
-          flex: 1,
-          padding: 20,
-          borderLeft: esMobil ? "none" : "2px solid #e5e7eb",
-          borderTop: esMobil ? "2px solid #e5e7eb" : "none",
-          display: "flex",
-          flexDirection: "column",
-          overflowY: "auto",
-          color: "#111827",
-          backgroundColor: "#ffffff",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))",
+          gap: 15,
         }}>
-          <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Pedido</h2>
-
-          <input
-            placeholder="Nombre del cliente"
-            value={cliente}
-            onChange={(e) => setCliente(e.target.value)}
-            style={{
-              padding: 12,
-              marginBottom: 15,
-              borderRadius: 10,
-              border: "1px solid #d1d5db",
-              fontWeight: 500,
-              color: "#111827",
-              backgroundColor: "#ffffff",
-              fontSize: 15,
-            }}
-          />
-
-          <div style={{ flex: 1, overflowY: "auto" }}>
-            {pedido.length === 0 && (
-              <p style={{ color: "#6b7280" }}>Sin productos</p>
-            )}
-            {pedido.map((item) => (
-              <div key={item.producto.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, alignItems: "center" }}>
-                <span style={{ fontWeight: 600, color: "#111827" }}>{item.producto.nombre_producto}</span>
-                <div>
-                  <button onClick={() => cambiarCantidad(item.producto.id, -1)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", backgroundColor: "#e5e7eb", fontWeight: 700, color: "#111827", cursor: "pointer", fontSize: 16 }}>-</button>
-                  <span style={{ margin: "0 10px", fontSize: 18, fontWeight: 600, color: "#111827" }}>{item.cantidad}</span>
-                  <button onClick={() => cambiarCantidad(item.producto.id, 1)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", backgroundColor: "#e5e7eb", fontWeight: 700, color: "#111827", cursor: "pointer", fontSize: 16 }}>+</button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <h2 style={{ fontWeight: 700, color: "#000", marginBottom: 10 }}>Total: ${total}</h2>
-
-          <button
-            onClick={finalizarPedido}
-            style={{ padding: 18, backgroundColor: "#16a34a", color: "#ffffff", border: "none", borderRadius: 10, fontSize: 18, fontWeight: 700, cursor: "pointer", marginTop: 10 }}
-          >
-            Finalizar pedido
-          </button>
-
-          {/* ÁREA DE COMANDA — visible en pantalla y al imprimir */}
-          {pedidoId && (
-            <div id="area-comanda" style={{ marginTop: 20, textAlign: "center" }}>
-              <p style={{ fontWeight: 700, fontSize: 15, color: "#000", margin: "0 0 2px" }}>PARKLISTO</p>
-              <p style={{ fontSize: 13, color: "#374151", margin: "0 0 10px" }}>Pedido #{pedidoId}</p>
-              <QRCodeCanvas
-                value={`${window.location.origin}/pedidos/${pedidoId}`}
-                size={170}
-              />
-              <p style={{ color: "#111827", fontWeight: 500, fontSize: 13, margin: "8px 0 2px" }}>
-                Escaneá para ver tu pedido
-              </p>
-              <p style={{ fontSize: 11, color: "#9ca3af", margin: "0 0 12px" }}>
-                www.parklisto.com.ar
-              </p>
-
-              <button
-                onClick={() => window.print()}
-                style={{
-                  width: "100%",
-                  padding: "11px 0",
-                  backgroundColor: "#111",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 8,
-                  fontWeight: 700,
-                  fontSize: 14,
-                  cursor: "pointer",
-                  marginBottom: 8,
-                }}
-              >
-                Imprimir comanda
-              </button>
-            </div>
+          {productos.length === 0 && (
+            <p style={{ color: "#6b7280" }}>No hay productos activos en este carrito.</p>
           )}
-
-          <button
-            onClick={nuevoPedido}
-            style={{ padding: 12, marginTop: pedidoId ? 0 : 10, backgroundColor: "#dc2626", color: "#ffffff", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 15 }}
-          >
-            Cancelar / Nuevo pedido
-          </button>
+          {productos.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => agregarProducto(p)}
+              style={{
+                padding: 20,
+                borderRadius: 12,
+                border: "none",
+                backgroundColor: "#ffffff",
+                color: "#111827",
+                boxShadow: "0 3px 8px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+                fontSize: 16,
+                fontWeight: 600,
+              }}
+            >
+              <div>{p.nombre_producto}</div>
+              <div style={{ marginTop: 5, color: "#16a34a" }}>${p.precio}</div>
+            </button>
+          ))}
         </div>
       </div>
-    </>
+
+      {/* PEDIDO */}
+      <div style={{
+        flex: 1,
+        padding: 20,
+        borderLeft: esMobil ? "none" : "2px solid #e5e7eb",
+        borderTop: esMobil ? "2px solid #e5e7eb" : "none",
+        display: "flex",
+        flexDirection: "column",
+        overflowY: "auto",
+        color: "#111827",
+        backgroundColor: "#ffffff",
+      }}>
+        <h2 style={{ color: "#000", fontWeight: 700, marginBottom: 15 }}>Pedido</h2>
+
+        <input
+          placeholder="Nombre del cliente"
+          value={cliente}
+          onChange={(e) => setCliente(e.target.value)}
+          style={{
+            padding: 12,
+            marginBottom: 15,
+            borderRadius: 10,
+            border: "1px solid #d1d5db",
+            fontWeight: 500,
+            color: "#111827",
+            backgroundColor: "#ffffff",
+            fontSize: 15,
+          }}
+        />
+
+        <div style={{ flex: 1, overflowY: "auto" }}>
+          {pedido.length === 0 && (
+            <p style={{ color: "#6b7280" }}>Sin productos</p>
+          )}
+          {pedido.map((item) => (
+            <div key={item.producto.id} style={{ display: "flex", justifyContent: "space-between", marginBottom: 12, alignItems: "center" }}>
+              <span style={{ fontWeight: 600, color: "#111827" }}>{item.producto.nombre_producto}</span>
+              <div>
+                <button onClick={() => cambiarCantidad(item.producto.id, -1)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", backgroundColor: "#e5e7eb", fontWeight: 700, color: "#111827", cursor: "pointer", fontSize: 16 }}>-</button>
+                <span style={{ margin: "0 10px", fontSize: 18, fontWeight: 600, color: "#111827" }}>{item.cantidad}</span>
+                <button onClick={() => cambiarCantidad(item.producto.id, 1)} style={{ padding: "6px 10px", borderRadius: 6, border: "none", backgroundColor: "#e5e7eb", fontWeight: 700, color: "#111827", cursor: "pointer", fontSize: 16 }}>+</button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <h2 style={{ fontWeight: 700, color: "#000", marginBottom: 10 }}>Total: ${total}</h2>
+
+        <button
+          onClick={finalizarPedido}
+          style={{ padding: 18, backgroundColor: "#16a34a", color: "#ffffff", border: "none", borderRadius: 10, fontSize: 18, fontWeight: 700, cursor: "pointer", marginTop: 10 }}
+        >
+          Finalizar pedido
+        </button>
+
+        <button
+          onClick={nuevoPedido}
+          style={{ padding: 12, marginTop: 10, backgroundColor: "#dc2626", color: "#ffffff", border: "none", borderRadius: 10, fontWeight: 700, cursor: "pointer", fontSize: 15 }}
+        >
+          Cancelar / Nuevo pedido
+        </button>
+
+        {pedidoId && (
+          <div style={{ marginTop: 20, textAlign: "center" }}>
+            <h3 style={{ color: "#000", fontWeight: 700 }}>Pedido #{pedidoId}</h3>
+            <QRCodeCanvas value={`${window.location.origin}/pedidos/${pedidoId}`} size={180} />
+            <p style={{ color: "#111827", fontWeight: 500 }}>Mostrar QR al cliente</p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
