@@ -26,8 +26,13 @@ export default function CajaPage() {
   const [pedidoId, setPedidoId] = useState<number | null>(null);
   const [cliente, setCliente] = useState("");
   const [esMobil, setEsMobil] = useState(false);
+
+  // Fechas y horas del reporte
   const [fechaInicio, setFechaInicio] = useState("");
+  const [horaInicio, setHoraInicio] = useState("00:00");
   const [fechaFin, setFechaFin] = useState("");
+  const [horaFin, setHoraFin] = useState("23:59");
+
   const [carritos, setCarritos] = useState<Carrito[]>([]);
   const [carritoSeleccionado, setCarritoSeleccionado] = useState<number | null>(null);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
@@ -47,7 +52,6 @@ export default function CajaPage() {
       if (!empId) return;
       setEmpresaId(String(empId));
 
-      // Verificar si el empleado tiene carrito asignado
       const carritoAsignado = await getCarritoEmpleado();
 
       const { data } = await supabase
@@ -58,12 +62,10 @@ export default function CajaPage() {
 
       if (data && data.length > 0) {
         if (carritoAsignado) {
-          // Empleado con carrito específico — solo muestra ese
           const soloSuCarrito = data.filter((c: any) => c.id === carritoAsignado);
           setCarritos(soloSuCarrito);
           setCarritoSeleccionado(carritoAsignado);
         } else {
-          // Dueño o empleado sin restricción — muestra todos
           setCarritos(data);
           setCarritoSeleccionado(data[0].id);
         }
@@ -159,9 +161,13 @@ export default function CajaPage() {
       return;
     }
 
+    // Armar timestamps completos con hora
+    const inicioISO = `${fechaInicio}T${horaInicio}:00`;
+    const finISO = `${fechaFin}T${horaFin}:59`;
+
     try {
       const res = await fetch(
-        `/api/reporte?inicio=${fechaInicio}&fin=${fechaFin}&empresaId=${empresaId}`
+        `/api/reporte?inicio=${encodeURIComponent(inicioISO)}&fin=${encodeURIComponent(finISO)}&empresaId=${empresaId}`
       );
 
       if (!res.ok) {
@@ -183,6 +189,14 @@ export default function CajaPage() {
       alert("Error descargando PDF");
     }
   }
+
+  const inputStyle = {
+    padding: 10,
+    borderRadius: 8,
+    border: "1px solid #d1d5db",
+    backgroundColor: "#ffffff",
+    color: "#111827",
+  };
 
   return (
     <div style={{
@@ -219,26 +233,55 @@ export default function CajaPage() {
           </div>
         )}
 
-        {/* REPORTE PDF */}
-        <div style={{ display: "flex", gap: 10, marginBottom: 15, flexWrap: "wrap" }}>
-          <input
-            type="date"
-            value={fechaInicio}
-            onChange={(e) => setFechaInicio(e.target.value)}
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #d1d5db", backgroundColor: "#ffffff", color: "#111827" }}
-          />
-          <input
-            type="date"
-            value={fechaFin}
-            onChange={(e) => setFechaFin(e.target.value)}
-            style={{ padding: 10, borderRadius: 8, border: "1px solid #d1d5db", backgroundColor: "#ffffff", color: "#111827" }}
-          />
-          <button
-            onClick={descargarReporte}
-            style={{ padding: "10px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
-          >
-            📄 Descargar PDF
-          </button>
+        {/* REPORTE PDF con fecha y hora */}
+        <div style={{ marginBottom: 15 }}>
+          <p style={{ fontWeight: 600, fontSize: 13, color: "#374151", marginBottom: 8 }}>
+            Reporte de turno
+          </p>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+            <div>
+              <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Desde</p>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  type="date"
+                  value={fechaInicio}
+                  onChange={(e) => setFechaInicio(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={horaInicio}
+                  onChange={(e) => setHoraInicio(e.target.value)}
+                  style={{ ...inputStyle, width: 100 }}
+                />
+              </div>
+            </div>
+            <div>
+              <p style={{ fontSize: 11, color: "#6b7280", margin: "0 0 3px" }}>Hasta</p>
+              <div style={{ display: "flex", gap: 4 }}>
+                <input
+                  type="date"
+                  value={fechaFin}
+                  onChange={(e) => setFechaFin(e.target.value)}
+                  style={inputStyle}
+                />
+                <input
+                  type="time"
+                  value={horaFin}
+                  onChange={(e) => setHoraFin(e.target.value)}
+                  style={{ ...inputStyle, width: 100 }}
+                />
+              </div>
+            </div>
+            <div style={{ alignSelf: "flex-end" }}>
+              <button
+                onClick={descargarReporte}
+                style={{ padding: "10px 16px", backgroundColor: "#2563eb", color: "#ffffff", border: "none", borderRadius: 8, fontWeight: 700, cursor: "pointer", fontSize: 14 }}
+              >
+                Descargar PDF
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* GRID PRODUCTOS */}

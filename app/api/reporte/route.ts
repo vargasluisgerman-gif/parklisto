@@ -25,13 +25,13 @@ export async function GET(req: Request) {
       .eq("id", empresaId)
       .single();
 
-    // Pedidos con fechas completas
-    const fechaInicio = new Date(`${inicio}T00:00:00.000Z`);
-    const fechaFin = new Date(`${fin}T23:59:59.999Z`);
+    // Parsear timestamps completos (pueden venir con hora o solo fecha)
+    const fechaInicio = new Date(inicio.includes("T") ? inicio : `${inicio}T00:00:00.000Z`);
+    const fechaFin = new Date(fin.includes("T") ? fin : `${fin}T23:59:59.999Z`);
 
     const { data: pedidos } = await supabaseAdmin
       .from("pedidos")
-      .select("id,numero, nombre, total, created_at, carrito_id, estado")
+      .select("id, numero, nombre, total, created_at, carrito_id, estado")
       .eq("empresa_id", empresaId)
       .gte("created_at", fechaInicio.toISOString())
       .lte("created_at", fechaFin.toISOString())
@@ -65,6 +65,15 @@ export async function GET(req: Request) {
       ? Math.round(totalGeneral / cantidadPedidos)
       : 0;
 
+    // Formatear período para mostrar en el PDF
+    const formatearPeriodo = (dt: Date) => {
+      const fecha = dt.toLocaleDateString("es-AR");
+      const hora = dt.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" });
+      return `${fecha} ${hora}`;
+    };
+
+    const periodoTexto = `${formatearPeriodo(fechaInicio)} al ${formatearPeriodo(fechaFin)}`;
+
     // ─── PDF ───────────────────────────────────────────────────────
     const pdfDoc = await PDFDocument.create();
     const page = pdfDoc.addPage([595, 842]); // A4
@@ -74,7 +83,6 @@ export async function GET(req: Request) {
     const bold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
     const italic = await pdfDoc.embedFont(StandardFonts.HelveticaOblique);
 
-    // Colores
     const negro = rgb(0.05, 0.05, 0.05);
     const gris = rgb(0.45, 0.45, 0.45);
     const grisSuave = rgb(0.95, 0.95, 0.95);
@@ -84,140 +92,66 @@ export async function GET(req: Request) {
     const headerBg = rgb(0.08, 0.12, 0.20);
 
     // ── HEADER ──
-    page.drawRectangle({
-      x: 0,
-      y: height - 90,
-      width,
-      height: 90,
-      color: headerBg,
-    });
+    page.drawRectangle({ x: 0, y: height - 90, width, height: 90, color: headerBg });
 
-    // Nombre app
-    page.drawText("PARKLISTO", {
-      x: 32,
-      y: height - 45,
-      size: 26,
-      font: bold,
-      color: verde,
-    });
-
-    page.drawText("Sistema de pedidos para food trucks", {
-      x: 32,
-      y: height - 62,
-      size: 9,
-      font,
-      color: rgb(0.65, 0.65, 0.65),
-    });
-
-    // Título reporte (derecha)
-    page.drawText("INFORME DE VENTAS", {
-      x: width - 190,
-      y: height - 45,
-      size: 15,
-      font: bold,
-      color: blanco,
-    });
-
-    page.drawText(`Generado: ${new Date().toLocaleDateString("es-AR")}`, {
-      x: width - 190,
-      y: height - 62,
-      size: 9,
-      font,
-      color: rgb(0.65, 0.65, 0.65),
-    });
+    page.drawText("PARKLISTO", { x: 32, y: height - 45, size: 26, font: bold, color: verde });
+    page.drawText("Sistema de pedidos para food trucks", { x: 32, y: height - 62, size: 9, font, color: rgb(0.65, 0.65, 0.65) });
+    page.drawText("INFORME DE VENTAS", { x: width - 190, y: height - 45, size: 15, font: bold, color: blanco });
+    page.drawText(`Generado: ${new Date().toLocaleDateString("es-AR")}`, { x: width - 190, y: height - 62, size: 9, font, color: rgb(0.65, 0.65, 0.65) });
 
     // ── DATOS EMPRESA ──
     let y = height - 110;
 
-    page.drawText("EMPRESA", {
-      x: 32, y, size: 8, font: bold, color: gris,
-    });
-
+    page.drawText("EMPRESA", { x: 32, y, size: 8, font: bold, color: gris });
     y -= 16;
-    page.drawText(empresa?.nombre_comercial || "N/A", {
-      x: 32, y, size: 14, font: bold, color: negro,
-    });
-
+    page.drawText(empresa?.nombre_comercial || "N/A", { x: 32, y, size: 14, font: bold, color: negro });
     y -= 16;
-    page.drawText(empresa?.email || "", {
-      x: 32, y, size: 10, font, color: gris,
-    });
-
+    page.drawText(empresa?.email || "", { x: 32, y, size: 10, font, color: gris });
     y -= 14;
-    page.drawText(`Carritos: ${nombreCarritos}`, {
-      x: 32, y, size: 10, font, color: gris,
-    });
+    page.drawText(`Carritos: ${nombreCarritos}`, { x: 32, y, size: 10, font, color: gris });
 
-    // Periodo (derecha)
-    page.drawText("PERIODO", {
-      x: width - 200,
-      y: height - 110,
-      size: 8,
-      font: bold,
-      color: gris,
-    });
-
-    page.drawText(`${inicio} al ${fin}`, {
-      x: width - 200,
-      y: height - 126,
-      size: 12,
-      font: bold,
-      color: negro,
-    });
+    // Periodo con hora (derecha)
+    page.drawText("PERIODO", { x: width - 220, y: height - 110, size: 8, font: bold, color: gris });
+    page.drawText(periodoTexto, { x: width - 220, y: height - 126, size: 10, font: bold, color: negro });
 
     // ── LINEA DIVISORA ──
     y -= 18;
-    page.drawRectangle({
-      x: 32, y, width: width - 64, height: 1,
-      color: rgb(0.85, 0.85, 0.85),
-    });
+    page.drawRectangle({ x: 32, y, width: width - 64, height: 1, color: rgb(0.85, 0.85, 0.85) });
 
     // ── METRICAS RESUMEN ──
     y -= 52;
     const metricW = (width - 64) / 3;
 
-    const metricas = [
+    [
       { label: "Total vendido", value: `$${totalGeneral.toLocaleString("es-AR")}` },
       { label: "Pedidos", value: `${cantidadPedidos}` },
       { label: "Ticket promedio", value: `$${ticketPromedio.toLocaleString("es-AR")}` },
-    ];
-
-    metricas.forEach((m, i) => {
+    ].forEach((m, i) => {
       const mx = 32 + i * metricW;
-      page.drawRectangle({
-        x: mx + 4, y: y - 8,
-        width: metricW - 8, height: 48,
-        color: grisSuave,
-      });
-      page.drawText(m.label, {
-        x: mx + 14, y: y + 24,
-        size: 8, font, color: gris,
-      });
-      page.drawText(m.value, {
-        x: mx + 14, y: y + 6,
-        size: 16, font: bold, color: verde,
-      });
+      page.drawRectangle({ x: mx + 4, y: y - 8, width: metricW - 8, height: 48, color: grisSuave });
+      page.drawText(m.label, { x: mx + 14, y: y + 24, size: 8, font, color: gris });
+      page.drawText(m.value, { x: mx + 14, y: y + 6, size: 16, font: bold, color: verde });
     });
 
-    // ── TABLA HEADER ──
+    // ── TABLA HEADER — ahora con columna Hora ──
     y -= 36;
-    page.drawRectangle({
-      x: 32, y, width: width - 64, height: 22,
-      color: headerBg,
-    });
+    page.drawRectangle({ x: 32, y, width: width - 64, height: 22, color: headerBg });
 
+    // Columnas ajustadas para incluir Hora
     const cols = {
       fecha: 36,
-      pedido: 126,
-      nombre: 206,
-      carrito: 336,
-      estado: 426,
-      total: 506,
+      hora: 106,
+      pedido: 156,
+      nombre: 216,
+      carrito: 326,
+      estado: 416,
+      total: 496,
     };
 
     [
       { x: cols.fecha, t: "Fecha" },
-      { x: cols.pedido, t: "Pedido #" },
+      { x: cols.hora, t: "Hora" },
+      { x: cols.pedido, t: "Pedido" },
       { x: cols.nombre, t: "Cliente" },
       { x: cols.carrito, t: "Carrito" },
       { x: cols.estado, t: "Estado" },
@@ -235,7 +169,8 @@ export async function GET(req: Request) {
       pg.drawRectangle({ x: 32, y: posY, width: width - 64, height: 22, color: headerBg });
       [
         { x: cols.fecha, t: "Fecha" },
-        { x: cols.pedido, t: "Pedido #" },
+        { x: cols.hora, t: "Hora" },
+        { x: cols.pedido, t: "Pedido" },
         { x: cols.nombre, t: "Cliente" },
         { x: cols.carrito, t: "Carrito" },
         { x: cols.estado, t: "Estado" },
@@ -255,66 +190,43 @@ export async function GET(req: Request) {
       }
 
       if (filaIndex % 2 === 0) {
-        paginaActual.drawRectangle({
-          x: 32, y, width: width - 64, height: 20,
-          color: grisSuave,
-        });
+        paginaActual.drawRectangle({ x: 32, y, width: width - 64, height: 20, color: grisSuave });
       }
 
-      const fecha = p.created_at
-        ? new Date(p.created_at).toLocaleDateString("es-AR")
-        : "-";
+      const fechaObj = p.created_at ? new Date(p.created_at) : null;
+      const fecha = fechaObj ? fechaObj.toLocaleDateString("es-AR") : "-";
+      const hora = fechaObj ? fechaObj.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : "-";
 
-      const carritoNombre = carritos.find((c: any) => c.id === p.carrito_id)
-        ?.nombre_comercial || "-";
-
-      const nombre = (p.nombre || "-").length > 16
-        ? (p.nombre || "-").substring(0, 14) + ".."
-        : (p.nombre || "-");
-
-      const carritoTrunc = carritoNombre.length > 13
-        ? carritoNombre.substring(0, 11) + ".."
-        : carritoNombre;
+      const carritoNombre = carritos.find((c: any) => c.id === p.carrito_id)?.nombre_comercial || "-";
+      const nombre = (p.nombre || "-").length > 13 ? (p.nombre || "-").substring(0, 11) + ".." : (p.nombre || "-");
+      const carritoTrunc = carritoNombre.length > 12 ? carritoNombre.substring(0, 10) + ".." : carritoNombre;
 
       paginaActual.drawText(fecha, { x: cols.fecha, y: y + 6, size: 9, font, color: negro });
+      paginaActual.drawText(hora, { x: cols.hora, y: y + 6, size: 9, font, color: gris });
       paginaActual.drawText(`${p.id || "-"}`, { x: cols.pedido, y: y + 6, size: 9, font, color: negro });
       paginaActual.drawText(nombre, { x: cols.nombre, y: y + 6, size: 9, font, color: negro });
       paginaActual.drawText(carritoTrunc, { x: cols.carrito, y: y + 6, size: 9, font, color: negro });
 
       const estadoColor = p.estado === "Listo" ? verde : naranja;
-      paginaActual.drawText(p.estado || "-", {
-        x: cols.estado, y: y + 6, size: 9, font: bold, color: estadoColor,
-      });
-
-      paginaActual.drawText(`$${(p.total || 0).toLocaleString("es-AR")}`, {
-        x: cols.total, y: y + 6, size: 9, font: bold, color: negro,
-      });
+      paginaActual.drawText(p.estado || "-", { x: cols.estado, y: y + 6, size: 9, font: bold, color: estadoColor });
+      paginaActual.drawText(`$${(p.total || 0).toLocaleString("es-AR")}`, { x: cols.total, y: y + 6, size: 9, font: bold, color: negro });
 
       y -= 20;
       filaIndex++;
     }
 
     if (pedidosFiltrados.length === 0) {
-      paginaActual.drawText("No hay pedidos en el periodo seleccionado.", {
-        x: 40, y: y + 6, size: 10, font: italic, color: gris,
-      });
+      paginaActual.drawText("No hay pedidos en el periodo seleccionado.", { x: 40, y: y + 6, size: 10, font: italic, color: gris });
       y -= 20;
     }
 
     // ── TOTAL FINAL ──
     y -= 10;
-    paginaActual.drawRectangle({
-      x: 32, y, width: width - 64, height: 30,
-      color: headerBg,
-    });
-    paginaActual.drawText("TOTAL GENERAL", {
-      x: 42, y: y + 10, size: 11, font: bold, color: blanco,
-    });
-    paginaActual.drawText(`$${totalGeneral.toLocaleString("es-AR")}`, {
-      x: cols.total - 14, y: y + 10, size: 13, font: bold, color: verde,
-    });
+    paginaActual.drawRectangle({ x: 32, y, width: width - 64, height: 30, color: headerBg });
+    paginaActual.drawText("TOTAL GENERAL", { x: 42, y: y + 10, size: 11, font: bold, color: blanco });
+    paginaActual.drawText(`$${totalGeneral.toLocaleString("es-AR")}`, { x: cols.total - 14, y: y + 10, size: 13, font: bold, color: verde });
 
-    // ── FOOTER en todas las paginas ──
+    // ── FOOTER ──
     const pagesCount = pdfDoc.getPageCount();
     for (let i = 0; i < pagesCount; i++) {
       const pg = pdfDoc.getPage(i);
@@ -329,7 +241,7 @@ export async function GET(req: Request) {
     return new NextResponse(Buffer.from(pdfBytes), {
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="parklisto-informe-${inicio}-${fin}.pdf"`,
+        "Content-Disposition": `attachment; filename="parklisto-informe.pdf"`,
       },
     });
 
