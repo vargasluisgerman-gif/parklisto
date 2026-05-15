@@ -63,13 +63,16 @@ export default function LoginPage() {
 
   return (
     <div style={{
-      minHeight: "100vh",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "#f3f4f6",
-      padding: 20,
-    }}>
+  minHeight: "100vh",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  padding: 20,
+  backgroundImage: "url('/fondo-login.png')",
+  backgroundSize: "cover",
+  backgroundPosition: "center",
+  backgroundRepeat: "no-repeat",
+}}>
       <div style={{
         backgroundColor: "#fff",
         borderRadius: 16,
