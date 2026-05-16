@@ -6,30 +6,73 @@ import { supabase } from "../lib/supabase";
 export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   const [estado, setEstado] = useState("Esperando");
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false);
+  const [notificacionPermiso, setNotificacionPermiso] = useState<string>("default");
 
   const yaSonóRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const vibrationInterval = useRef<any>(null);
 
-  // Inicializar audio
   useEffect(() => {
     audioRef.current = new Audio("/alerta.mp3");
     audioRef.current.loop = true;
+
+    // Verificar permiso actual de notificaciones
+    if ("Notification" in window) {
+      setNotificacionPermiso(Notification.permission);
+    }
   }, []);
 
-  // Desbloquear audio — necesario en mobile antes de reproducir
-  const unlockAudio = async () => {
+  // Pedir permiso de notificaciones y suscribirse al push
+  async function activarNotificaciones() {
     try {
       if (!audioRef.current) return;
+
+      // Desbloquear audio
       await audioRef.current.play();
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setAudioDesbloqueado(true);
-      console.log("Audio desbloqueado");
+
+      // Pedir permiso de notificaciones
+      if ("Notification" in window && "serviceWorker" in navigator) {
+        const permiso = await Notification.requestPermission();
+        setNotificacionPermiso(permiso);
+
+        if (permiso === "granted") {
+          await suscribirPush();
+        }
+      }
     } catch (e) {
-      console.log("ERROR AUDIO:", e);
+      console.error("Error activando notificaciones:", e);
     }
-  };
+  }
+
+  async function suscribirPush() {
+    try {
+      const registration = await navigator.serviceWorker.ready;
+
+      const suscripcion = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(
+          process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
+        ),
+      });
+
+      // Guardar suscripción en el servidor asociada al pedido
+      await fetch("/api/push/suscribir", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pedido_id: pedidoId,
+          suscripcion: suscripcion.toJSON(),
+        }),
+      });
+
+      console.log("[Push] Suscripcion guardada para pedido", pedidoId);
+    } catch (e) {
+      console.error("[Push] Error suscribiendo:", e);
+    }
+  }
 
   // Estado inicial del pedido
   useEffect(() => {
@@ -42,8 +85,6 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
 
       if (data) {
         setEstado(data.estado);
-
-        // Si ya estaba listo cuando el cliente abre la página
         if (data.estado === "Listo") {
           yaSonóRef.current = true;
         }
@@ -106,13 +147,13 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   return (
     <div style={{ textAlign: "center", marginTop: 20 }}>
 
-      {/* Botón de activar sonido — desaparece cuando se activa */}
+      {/* Botón activar — pide audio Y notificaciones */}
       {!audioDesbloqueado && (
         <button
-          onClick={unlockAudio}
+          onClick={activarNotificaciones}
           style={{
             marginBottom: 16,
-            padding: "10px 20px",
+            padding: "12px 20px",
             backgroundColor: "#2563eb",
             color: "#ffffff",
             border: "none",
@@ -120,15 +161,22 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
             fontWeight: 700,
             fontSize: 15,
             cursor: "pointer",
+            width: "100%",
           }}
         >
-          Activar sonido
+          Activar avisos
         </button>
       )}
 
-      {audioDesbloqueado && (
-        <p style={{ fontSize: 12, color: "#6b7280", marginBottom: 12 }}>
-          Sonido activado — te avisamos cuando tu pedido este listo
+      {audioDesbloqueado && notificacionPermiso === "granted" && (
+        <p style={{ fontSize: 12, color: "#16a34a", marginBottom: 12 }}>
+          Sonido y notificaciones activados
+        </p>
+      )}
+
+      {audioDesbloqueado && notificacionPermiso !== "granted" && (
+        <p style={{ fontSize: 12, color: "#f59e0b", marginBottom: 12 }}>
+          Sonido activado. Permite notificaciones para avisos cuando cierres la app.
         </p>
       )}
 
@@ -153,7 +201,6 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
           : "En preparacion..."}
       </div>
 
-      {/* Botón para detener el sonido cuando el pedido está listo */}
       {estado === "Listo" && audioDesbloqueado && (
         <button
           onClick={() => {
@@ -182,4 +229,14 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
       )}
     </div>
   );
+}
+
+// Convertir clave VAPID a formato Uint8Array
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding)
+    .replace(/-/g, "+")
+    .replace(/_/g, "/");
+  const rawData = window.atob(base64);
+  return Uint8Array.from([...rawData].map((char) => char.charCodeAt(0)));
 }
