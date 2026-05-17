@@ -7,6 +7,8 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   const [estado, setEstado] = useState("Esperando");
   const [audioDesbloqueado, setAudioDesbloqueado] = useState(false);
   const [notificacionPermiso, setNotificacionPermiso] = useState<string>("default");
+  const [esIOS, setEsIOS] = useState(false);
+  const [esPWA, setEsPWA] = useState(false);
 
   const yaSonóRef = useRef(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -16,13 +18,20 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
     audioRef.current = new Audio("/alerta.mp3");
     audioRef.current.loop = true;
 
-    // Verificar permiso actual de notificaciones
     if ("Notification" in window) {
       setNotificacionPermiso(Notification.permission);
     }
+
+    // Detectar iOS
+    const ios = /iphone|ipad|ipod/i.test(navigator.userAgent);
+    setEsIOS(ios);
+
+    // Detectar si está instalada como PWA
+    const pwa = (window.navigator as any).standalone === true ||
+      window.matchMedia("(display-mode: standalone)").matches;
+    setEsPWA(pwa);
   }, []);
 
-  // Pedir permiso de notificaciones y suscribirse al push
   async function activarNotificaciones() {
     try {
       if (!audioRef.current) return;
@@ -58,7 +67,6 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
         ),
       });
 
-      // Guardar suscripción en el servidor asociada al pedido
       await fetch("/api/push/suscribir", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,7 +101,7 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
     fetchEstado();
   }, [pedidoId]);
 
-  // Realtime — escucha cambios de estado
+  // Realtime
   useEffect(() => {
     const channel = supabase
       .channel(`pedido-estado-${pedidoId}`)
@@ -112,13 +120,11 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
           if (nuevoEstado === "Listo" && !yaSonóRef.current) {
             yaSonóRef.current = true;
 
-            // Sonido
             if (audioRef.current && audioDesbloqueado) {
               audioRef.current.currentTime = 0;
               audioRef.current.play().catch(() => {});
             }
 
-            // Vibración en mobile
             if (navigator.vibrate) {
               vibrationInterval.current = setInterval(() => {
                 navigator.vibrate([300, 100, 300]);
@@ -147,25 +153,47 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   return (
     <div style={{ textAlign: "center", marginTop: 20 }}>
 
-      {/* Botón activar — pide audio Y notificaciones */}
+      {/* Botón activar avisos */}
       {!audioDesbloqueado && (
-        <button
-          onClick={activarNotificaciones}
-          style={{
-            marginBottom: 16,
-            padding: "12px 20px",
-            backgroundColor: "#2563eb",
-            color: "#ffffff",
-            border: "none",
-            borderRadius: 8,
-            fontWeight: 700,
-            fontSize: 15,
-            cursor: "pointer",
-            width: "100%",
-          }}
-        >
-          Activar avisos
-        </button>
+        <div style={{ marginBottom: 16 }}>
+          <button
+            onClick={activarNotificaciones}
+            style={{
+              marginBottom: 10,
+              padding: "12px 20px",
+              backgroundColor: "#2563eb",
+              color: "#ffffff",
+              border: "none",
+              borderRadius: 8,
+              fontWeight: 700,
+              fontSize: 15,
+              cursor: "pointer",
+              width: "100%",
+            }}
+          >
+            Activar avisos
+          </button>
+
+          {/* Instrucción solo para iOS sin PWA instalada */}
+          {esIOS && !esPWA && (
+            <div style={{
+              backgroundColor: "#fef3c7",
+              border: "1px solid #fcd34d",
+              borderRadius: 8,
+              padding: "10px 14px",
+              textAlign: "left",
+            }}>
+              <p style={{ fontSize: 13, fontWeight: 700, color: "#92400e", margin: "0 0 4px" }}>
+                Para recibir avisos si cierras Safari:
+              </p>
+              <p style={{ fontSize: 12, color: "#92400e", margin: 0, lineHeight: 1.6 }}>
+                1. Toca el boton <strong>Compartir</strong> en Safari<br />
+                2. Selecciona <strong>Agregar a pantalla de inicio</strong><br />
+                3. Abre la app desde tu pantalla de inicio
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {audioDesbloqueado && notificacionPermiso === "granted" && (
@@ -231,7 +259,6 @@ export default function EstadoPedido({ pedidoId }: { pedidoId: number }) {
   );
 }
 
-// Convertir clave VAPID a formato Uint8Array
 function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding)
