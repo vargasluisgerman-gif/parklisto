@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Cliente con service role — bypasea RLS
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -9,7 +8,15 @@ const supabaseAdmin = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    const { nombre_comercial, nombre_carrito, user_id, email } = await req.json()
+    const {
+      nombre_comercial,
+      nombre_carrito,
+      user_id,
+      email,
+      pais,
+      moneda,
+      simbolo_moneda,
+    } = await req.json()
 
     if (!nombre_comercial || !nombre_carrito || !user_id || !email) {
       return NextResponse.json({ error: 'Faltan datos' }, { status: 400 })
@@ -25,6 +32,9 @@ export async function POST(req: NextRequest) {
         pago_habilitado: false,
         plan: 'basico',
         saldo: 0,
+        pais: pais || 'AR',
+        moneda: moneda || 'ARS',
+        simbolo_moneda: simbolo_moneda || '$',
         created_at: new Date().toISOString(),
       })
       .select()
